@@ -72,6 +72,7 @@ class BertModel(object):
                                                               attention_mask,
                                                               config.attention_ac)
             # TODO Decode
+            # Inherit this class, for expansion capability
             # sequence_output: [batch_size, seq_length, embedding_size]
             # use mask to predict the masked words
 
