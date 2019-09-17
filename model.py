@@ -71,7 +71,7 @@ class BertModel(object):
                                                               config.attention_prob_dropout_prob,
                                                               attention_mask,
                                                               config.attention_ac)
-            # TODO Decode
+            # TODO Decoder
             # Inherit this class, for expansion capability
             # sequence_output: [batch_size, seq_length, embedding_size]
             # use mask to predict the masked words
