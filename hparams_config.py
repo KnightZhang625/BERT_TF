@@ -53,7 +53,7 @@ class Config(NoNewAttrs):
     lr_limit = 1e-4
 
     # save model path
-    ckpt_path = './models'
+    ckpt_path = 'models/'
     summary_name = 'tensorboard'
 
     # train

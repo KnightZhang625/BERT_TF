@@ -85,9 +85,12 @@ class BertModel(object):
             if is_training:
                 self._compute_loss(config.batch_size)
                 self._update(config.learning_rate, config.decay_step, config.lr_limit)
+                self.train_summary = tf.summary.merge(
+                    [tf.summary.scalar('lr', self.learning_rate),
+                    tf.summary.scalar('loss', self.loss_bs)])
             else:
                 self._infer()
-            
+           
             self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=3)
             _info('Finish Building Graph', head='INFO')
 
@@ -343,19 +346,18 @@ class BertModel(object):
     def _compute_loss(self, batch_size):
         """compute the cross-entropy loss."""
         # 1 refers to occurring word, 0 refers to masked word in original input_mask
-        input_mask = tf.cast(self.input_mask, tf.float32)
-        loss_mask = 1 - input_mask
+        # abandon the input_mask, do not really learn the data
+        # input_mask = tf.cast(self.input_mask, tf.float32)
+        # loss_mask = 1 - input_mask
     
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.output_ids, logits=self.logits)
-        self.loss_bs = tf.reduce_sum(loss * loss_mask) / batch_size
-        tf.summary.scalar('loss_bs', self.loss_bs)
+        self.loss_bs = tf.reduce_sum(loss) / batch_size
     
     def _update(self, learning_rate, decay_step, lr_limit):
         """update the parameters."""
         self.learning_rate = tf.maximum(tf.constant(lr_limit),
                                         tf.train.polynomial_decay(learning_rate, self.global_step, 
-                                                                  decay_step, power=0.5, cycle=True))
-        tf.summary.scalar('learning_rate', self.learning_rate)        
+                                                                  decay_step, power=0.5, cycle=True))    
         optimizer = tf.train.AdamOptimizer(self.learning_rate, name='Adam')
         parameters = tf.trainable_variables()
         gradients = tf.gradients(self.loss_bs, parameters, colocate_gradients_with_ops=True)
@@ -380,7 +382,8 @@ class BertModel(object):
                          self.learning_rate, 
                          self.loss_bs,
                          self.upgrade,
-                         self.logits], feed_dict=feed)
+                         self.logits,
+                         self.train_summary], feed_dict=feed)
 
     def infer(self, sess, data):
         assert not self.is_training
@@ -412,24 +415,53 @@ if __name__ == '__main__':
     summary_writer = tf.summary.FileWriter(
 		os.path.join(config_.ckpt_path, config_.summary_name), train_graph)
 
-    # just test
+    """The following is just for test"""
     input_ids = np.array([[10, 128, 10, 0, 120], [20, 3, 0, 0, 30]], dtype=np.int32)
     input_length = 5
     input_mask = np.array([[1, 1, 1, 0, 1], [1, 1, 0, 0, 1]], dtype=np.int32)
     output_ids = np.array([[10, 128, 10, 1, 120], [20, 3, 2, 5, 30]], dtype=np.int32)
 
     import collections
-    data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids, pos_emb')
+    data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids positional_embeddings')
     data.input_ids = input_ids
     data.input_length = input_length
     data.input_mask = input_mask
     data.output_ids = output_ids
     data.positional_embeddings = _mh.create_pos_embeddings(config_.embedding_size, input_length)
 
-    res = train_model.train(train_sess, data)
-    print(res[2])
-    print(res[4].shape)
+    for i in range(1000):
+        res = train_model.train(train_sess, data)
+        global_step = res[0]
+        loss = res[2]
+        _info('loss: {}'.format(loss), head=global_step)
+        summary_writer.add_summary(res[5], global_step)
+    train_model.saver.save(
+        train_sess,
+        config_.ckpt_path,
+        global_step=global_step)
 
+    infer_graph = tf.Graph()
+    with infer_graph.as_default():
+        infer_model = BertModel(config=config_, is_training=False)
+    
+    sess_conf = tf.ConfigProto(intra_op_parallelism_threads=8, inter_op_parallelism_threads=8)
+    sess_conf.gpu_options.allow_growth = True
+    infer_sess = tf.Session(config=sess_conf, graph=infer_graph)
+
+    with infer_graph.as_default():
+        loaded_model, global_step = _mh.create_or_load(
+            infer_model, config_.ckpt_path, infer_sess)
+
+    infer_data = collections.namedtuple('data', 'input_ids input_length input_mask positional_embeddings')
+    infer_data.input_ids = input_ids
+    infer_data.input_length = input_length
+    infer_data.input_mask = input_mask
+    infer_data.positional_embeddings = _mh.create_pos_embeddings(config_.embedding_size, input_length)
+    
+    res = infer_model.infer(infer_sess, infer_data)
+    print(res)
+    """"end for test"""
+    
     # # 5. train
     # train_steps = int(config_.steps)
     # batch_size = int(config_.batch_size)
