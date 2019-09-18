@@ -1,16 +1,5 @@
 import numpy as np
 import tensorflow as tf
 
-c = np.zeros([5, 10, 128])
-c = tf.cast(tf.convert_to_tensor(c), dtype=tf.float32)
+mask = tf.cast(tf.convert_to_tensor(np.array([[1, 1, 0], [1, 0, 1]])), dtype=tf.int32)
 
-pos = tf.get_variable('pos', [10, 128], dtype=tf.float32)
-
-c += pos
-
-init = tf.global_variables_initializer()
-
-sess = tf.Session()
-sess.run(init)
-print(sess.run(p))
-print(sess.run(c))

@@ -39,13 +39,17 @@ class BertModel(object):
         # set the global initializer, which would cover all the variable scopes
         self.initializer = _mh.select_initializer(itype=config.initializer, seed=config.seed, init_weight=config.init_weight)
         tf.get_variable_scope().set_initializer(self.initializer)
+        self.global_step = tf.Variable(0, trainable=False)
 
         # Input Section
         self.input_ids = tf.placeholder(tf.float32, [None, None], name='input_ids')
-        batch_size= self.input_ids.shape.as_list()[0]
-        seq_length = self.input_ids.as_list()[1]
+        # batch_size= self.input_ids.shape.as_list()[0]
+        # seq_length = self.input_ids.as_list()[1]
 
         self.input_mask = tf.placeholder(tf.int32, [None, None], name='input_mask')
+
+        # Output Mask
+        self.output_ids = tf.placeholder(tf.int32, [None, None], name='output_ids')
 
         # Encoder Section
         # TODO access the variables from the specific scope
@@ -53,7 +57,7 @@ class BertModel(object):
             # create embedding and get embedded input
             with tf.variable_scope('embeddings'):
                 self.embedding = tf.get_variable('embedding', [config.vocab_size, config.embedding_size], dtype=tf.float32)
-                embedded_input = tf.nn.embedding_loopup(self.embedding, self.input_ids)
+                embedded_input = tf.nn.embedding_lookup(self.embedding, self.input_ids)
             # add positional embedding
             embedded_input_pos = self._embedding_positional(config.pos_type, embedded_input, dropout_prob=config.dropout_prob)
 
@@ -62,7 +66,7 @@ class BertModel(object):
                 # get attention mask
                 attention_mask = self._create_attention_mask(self.input_ids, self.input_mask)
                 # Multi-head, multi-layer Transformer
-                self.sequence_output = self.transformer_model(embedded_input_pos,
+                sequence_output = self.transformer_model(embedded_input_pos,
                                                               config.encoder_layer,
                                                               config.num_attention_heads,
                                                               config.forward_size,
@@ -71,10 +75,21 @@ class BertModel(object):
                                                               config.attention_prob_dropout_prob,
                                                               attention_mask,
                                                               config.attention_ac)
-            # TODO Decoder
-            # Inherit this class, for expansion capability
-            # sequence_output: [batch_size, seq_length, embedding_size]
-            # use mask to predict the masked words
+            
+            # Decoder
+            # Inherit this class, for expansion capability,
+            # No Returns, because of considerring for expansion after pre_train,
+            # do not add to much variable in initial function.
+            with tf.variable_scope('decoder'):
+                self._projection(sequence_output, config.vocab_size)
+            
+            if is_training:
+                self._compute_loss()
+                self._update(config.learning_rate, config.decay_step)
+            else:
+                self._infer()
+            
+            self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=3)
 
     def _embedding_positional(self, pos_type, embedded_input, dropout_prob, name=None, max_position_embedding=100):
         """add positional embeddings to the original embeddings.
@@ -311,6 +326,36 @@ class BertModel(object):
         context_layer = tf.reshape(context_layer, [batch_size, seq_length, num_attention_heads * attention_head_size])
 
         return context_layer
+    
+    def _projection(self, sequence_output, vocab_size):
+        """project the output from the encoder to the vocab size."""
+        with tf.variable_scope('output_layer'):
+            self.logits = tf.layers.dense(sequence_output, vocab_size, name='output')
+    
+    def _compute_loss(self):
+        """compute the cross-entropy loss."""
+        batch_size = self.output_ids.shape.as_list()[0]
+        # 1 refers to occurring word, 0 refers to masked word in original input_mask
+        input_mask = tf.cast(self.input_mask, tf.float32)
+        loss_mask = 1 - input_mask
+
+        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.output_ids, logits=self.logits)
+        self.loss_bs = tf.reduce_sum(loss * loss_mask) / batch_size
+    
+    def _update(self, learning_rate, decay_step):
+        """update the parameters."""
+        self.learning_rate = tf.train.polynomial_decay(
+            learning_rate, self.global_step, decay_step, power=0.5, cycle=True)
+        optimizer = tf.train.AdamOptimizer(self.learning_rate, name='Adam')
+        parameters = tf.trainable_variables()
+        gradients = tf.gradients(self.loss_bs, parameters, colocate_gradients_with_ops=True)
+        clip_gradients = tf.clip_by_global_norm(gradients, 5.0)
+        self.upgrade = optimizer.apply_gradients(zip(clip_gradients, parameters), global_step=self.global_step)
+
+    def _infer(self):
+        """get the prediction index in inference."""
+        outputs = tf.nn.softmax(self.logits)
+        self.predict_idx = tf.argmax(outputs, axis=2)
 
 if __name__ == '__main__':
     config.hidden_dropout_prob = 0.2 
