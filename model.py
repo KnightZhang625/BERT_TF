@@ -23,10 +23,9 @@ import numpy as np
 import tensorflow as tf
 import model_helper as _mh
 
+from hparams_config import config
 from log import log_info as _info
 from log import log_error as _error
-
-config = collections.namedtuple('Config', 'hidden_dropout_prob attention_prob_dropout_prob')
 
 class BertModel(object):
     def __init__(self, config, is_training, scope=None):
@@ -43,9 +42,6 @@ class BertModel(object):
 
         # Input Section
         self.input_ids = tf.placeholder(tf.float32, [None, None], name='input_ids')
-        # batch_size= self.input_ids.shape.as_list()[0]
-        # seq_length = self.input_ids.as_list()[1]
-
         self.input_mask = tf.placeholder(tf.int32, [None, None], name='input_mask')
 
         # Output Mask
@@ -85,11 +81,12 @@ class BertModel(object):
             
             if is_training:
                 self._compute_loss()
-                self._update(config.learning_rate, config.decay_step)
+                self._update(config.learning_rate, config.decay_step, config.lr_limit)
             else:
                 self._infer()
             
             self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=3)
+            _info('Finish Building Graph', head='INFO')
 
     def _embedding_positional(self, pos_type, embedded_input, dropout_prob, name=None, max_position_embedding=100):
         """add positional embeddings to the original embeddings.
@@ -342,10 +339,11 @@ class BertModel(object):
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.output_ids, logits=self.logits)
         self.loss_bs = tf.reduce_sum(loss * loss_mask) / batch_size
     
-    def _update(self, learning_rate, decay_step):
+    def _update(self, learning_rate, decay_step, lr_limit):
         """update the parameters."""
-        self.learning_rate = tf.train.polynomial_decay(
-            learning_rate, self.global_step, decay_step, power=0.5, cycle=True)
+        self.learning_rate = tf.maximum(tf.constant(lr_limit),
+                                        tf.train.polynomial_decay(learning_rate, self.global_step, 
+                                                                  decay_step, power=0.5, cycle=True))
         optimizer = tf.train.AdamOptimizer(self.learning_rate, name='Adam')
         parameters = tf.trainable_variables()
         gradients = tf.gradients(self.loss_bs, parameters, colocate_gradients_with_ops=True)
@@ -358,7 +356,4 @@ class BertModel(object):
         self.predict_idx = tf.argmax(outputs, axis=2)
 
 if __name__ == '__main__':
-    config.hidden_dropout_prob = 0.2 
-    config.attention_prob_dropout_prob = 0.2
-
-    print(config.hidden_dropout_prob)
+    print(config.initializer)

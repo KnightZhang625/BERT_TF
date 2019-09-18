@@ -2,6 +2,8 @@ import tensorflow as tf
 from log import log_info as _info
 from log import log_error as _error
 
+__all__ = ['select_initializer', 'get_specific_scope_params']
+
 def select_initializer(itype=None, seed=None, init_weight=0.01):
     if itype.upper() == 'UNIFORM':
         return tf.random_uniform_initializer(-init_weight, init_weight, seed=seed)
@@ -14,3 +16,7 @@ def select_initializer(itype=None, seed=None, init_weight=0.01):
     else:
         _error('Not support <{}> initializer'.format(itype), head='ERROR')
         raise ValueError
+
+def get_specific_scope_params(scope=''):
+    """return variables belonging to the specific scope"""
+    return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
