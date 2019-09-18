@@ -17,19 +17,21 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import copy
-import collections
 import numpy as np
 import tensorflow as tf
+import tensorflow.contrib.autograph as autograph
 import model_helper as _mh
 
-from hparams_config import config
+from hparams_config import config as config_
 from log import log_info as _info
 from log import log_error as _error
 
 class BertModel(object):
     def __init__(self, config, is_training, scope=None):
-        config = copy.deepcopy(config)
+        config = copy.deepcopy(config_)
+        self.is_training = is_training
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.attention_prob_dropout_prob = 0.0
@@ -41,7 +43,8 @@ class BertModel(object):
         self.global_step = tf.Variable(0, trainable=False)
 
         # Input Section
-        self.input_ids = tf.placeholder(tf.float32, [None, None], name='input_ids')
+        self.input_ids = tf.placeholder(tf.int32, [None, None], name='input_ids')
+        self.input_length = tf.placeholder(tf.int32, name='input_length')
         self.input_mask = tf.placeholder(tf.int32, [None, None], name='input_mask')
 
         # Output Mask
@@ -55,22 +58,23 @@ class BertModel(object):
                 self.embedding = tf.get_variable('embedding', [config.vocab_size, config.embedding_size], dtype=tf.float32)
                 embedded_input = tf.nn.embedding_lookup(self.embedding, self.input_ids)
             # add positional embedding
-            embedded_input_pos = self._embedding_positional(config.pos_type, embedded_input, dropout_prob=config.dropout_prob)
+            embedded_input_pos = self._embedding_positional(config.pos_type, embedded_input, config.embedding_size, dropout_prob=config.dropout_prob)
 
             # Encoder Blocks
             with tf.variable_scope('encoder'):
                 # get attention mask
-                attention_mask = self._create_attention_mask(self.input_ids, self.input_mask)
+                attention_mask = self._create_attention_mask(self.input_ids, self.input_mask, config.batch_size)
                 # Multi-head, multi-layer Transformer
                 sequence_output = self.transformer_model(embedded_input_pos,
-                                                              config.encoder_layer,
-                                                              config.num_attention_heads,
-                                                              config.forward_size,
-                                                              config.forward_ac,
-                                                              config.hidden_dropout_prob,
-                                                              config.attention_prob_dropout_prob,
-                                                              attention_mask,
-                                                              config.attention_ac)
+                                                         config.batch_size,
+                                                         config.encoder_layer,
+                                                         config.num_attention_heads,
+                                                         config.forward_size,
+                                                         config.forward_ac,
+                                                         config.hidden_dropout_prob,
+                                                         config.attention_prob_dropout_prob,
+                                                         attention_mask,
+                                                         config.attention_ac)
             
             # Decoder
             # Inherit this class, for expansion capability,
@@ -80,7 +84,7 @@ class BertModel(object):
                 self._projection(sequence_output, config.vocab_size)
             
             if is_training:
-                self._compute_loss()
+                self._compute_loss(config.batch_size)
                 self._update(config.learning_rate, config.decay_step, config.lr_limit)
             else:
                 self._infer()
@@ -88,12 +92,13 @@ class BertModel(object):
             self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=3)
             _info('Finish Building Graph', head='INFO')
 
-    def _embedding_positional(self, pos_type, embedded_input, dropout_prob, name=None, max_position_embedding=100):
+    def _embedding_positional(self, pos_type, embedded_input, embedding_size, dropout_prob, name=None, max_position_embedding=100):
         """add positional embeddings to the original embeddings.
 
         Args:
             pos_type: the positional type to use, either 'normal' or 'positional_embedding'.
             embedded_input: original embeddings, [batch_size, seq_length, embedding_size].
+            embedding_size: embedding size.
             dropout_prob: dropout probability, refer to the 'rate' parameter in tf.nn.dropout()
             max_position_embedding: for 'normal' type, the model learn a new positional matrix,
                 so set a max sequence length.
@@ -101,24 +106,27 @@ class BertModel(object):
         Returns:
             output: identical type and shape to the embedded input.
         """
-        input_shape = embedded_input.shape.as_list()
-        seq_length, embeded_size = input_shape[1], input_shape[2]
+        # input_shape = embedded_input.shape
+        # input_shape = tf.shape(embedded_input)
+        # seq_length, embeded_size = input_shape[1], input_shape[2]
 
-        assert_op = tf.assert_less_equal(seq_length, max_position_embedding)
+        assert_op = tf.assert_less_equal(self.input_length, max_position_embedding)
         with tf.control_dependencies([assert_op]):
             # select sin & cos or normal positional embedding
             if pos_type == 'normal':
                 positional_embeddings = tf.get_variable(
                     name='positional_embedding',
-                    shape=[max_position_embedding, embeded_size],
+                    shape=[max_position_embedding, embedding_size],
                     dtype=tf.float32)
                 # slice the positional embeddings according to the actual length
-                ac_pos_embed = tf.slice(positional_embeddings, [0, 0], [seq_length, -1])
+                ac_pos_embed = tf.slice(positional_embeddings, [0, 0], [self.input_length, -1])
                 embedded_input += ac_pos_embed
             elif pos_type == 'trigonometrical':
+                # TODO bug happens, use tf.while_loop to fix
                 positional_embeddings = np.array(
                     [[pos / np.power(10000, (j - j%2)/embeded_size) for j in range(embeded_size)]
-                    for pos in range(seq_length)])
+                    for pos in range(self.input_length)])
+                # positional_embeddings = _create_embeddings(seq_length, embeded_size)                
                 positional_embeddings[:, 0::2] = np.sin(positional_embeddings[:, 0::2])
                 positional_embeddings[:, 1::2] = np.cos(positional_embeddings[:, 1::2])
                 positional_embeddings = tf.convert_to_tensor(positional_embeddings)
@@ -136,26 +144,23 @@ class BertModel(object):
         return output_tensor
 
     def _layer_norm(self, input_tensor, name=None):
-        return tf.contrib.layers._layer_norm(inputs=input_tensor, scope=name)
+        return tf.contrib.layers.layer_norm(inputs=input_tensor, scope=name)
     
     def _dropout(self, input_tensor, dropout_prob):
         if dropout_prob is None or dropout_prob == 0.0:
             return input_tensor
         return tf.nn.dropout(input_tensor, rate=dropout_prob)
 
-    def _create_attention_mask(self, input_idx, input_mask):
+    def _create_attention_mask(self, input_idx, input_mask, batch_size):
         """create mask for attention matrix.
 
         Args:
             input_idx: [batch_size, seq_length].
-            input_maks: [batch_size, seq_length].
+            input_mask: [batch_size, seq_length].
         
         Returns:
             mask: [batch_size, seq_length, seq_length].
         """
-        input_shape = input_idx.shape.as_list()
-        batch_size, seq_length = input_shape[0], input_shape[1]
-
         # initial_mask: [b, s, 1]     input_mask: [b, 1, s]
         #     b_1 : 1 1 1 1 1             b_1 : 1 1 0 1 1
         #     b_2 : 1 1 1 1 1             b_2 : 1 0 1 1 1
@@ -167,8 +172,8 @@ class BertModel(object):
         #     b_1: 1 1 0 1 1  b_2: 1 0 1 1 1  b_3: 1 1 1 1 0
         #          1 1 0 1 1       1 0 1 1 1       1 1 1 1 0
         #          1 1 0 1 1       1 0 1 1 1       1 1 1 1 0 
-        initial_mask = tf.ones([batch_size, seq_length, 1], dtype=tf.float32)    
-        input_mask = tf.cast(tf.reshape(input_mask, [batch_size, 1, seq_length]), tf.float32)
+        initial_mask = tf.ones([batch_size, self.input_length, 1], dtype=tf.float32)    
+        input_mask = tf.cast(tf.reshape(input_mask, [batch_size, 1, self.input_length]), tf.float32)
 
         mask = initial_mask * initial_mask
         
@@ -176,6 +181,7 @@ class BertModel(object):
 
     def transformer_model(self,
                           input_tensor,
+                          batch_size,
                           encoder_layer,
                           num_attention_heads,
                           forward_size,
@@ -215,11 +221,12 @@ class BertModel(object):
                             # self-attention
                             with tf.variable_scope('self_attention'):
                                 attention_head = self.self_attention(layer_input,
-                                                                    num_attention_heads,
-                                                                    attention_head_size,
-                                                                    attention_prob_dropout_prob,
-                                                                    attention_mask,
-                                                                    attention_ac)
+                                                                     batch_size,
+                                                                     num_attention_heads,
+                                                                     attention_head_size,
+                                                                     attention_prob_dropout_prob,
+                                                                     attention_mask,
+                                                                     attention_ac)
                             attention_head = self._layer_norm(attention_head + layer_input)
 
                             # forward layer
@@ -236,6 +243,7 @@ class BertModel(object):
 
     def self_attention(self,
                        input_tensor,
+                       batch_size,
                        num_attention_heads,
                        attention_head_size,
                        attention_prob_dropout_prob,
@@ -261,10 +269,6 @@ class BertModel(object):
         # H: hidden_size
         # N: num_attention_heads
         # h: hidden_size for each attention head
-
-        # [B, S, E]
-        input_shape = input_tensor.shape.as_list()
-        batch_size, seq_length = input_shape[0], input_shape[1]
         
         # [B, S, h * N]
         query_layer = tf.layers.dense(
@@ -293,10 +297,10 @@ class BertModel(object):
         # the num_attention_head axis should be ahead of seq_length axis
         # query: [B, N, S, h] key: [B, N, h, S]
         query_layer = tf.transpose(
-                tf.shape(query_layer, [batch_size, seq_length, num_attention_heads, attention_head_size]),
+                tf.reshape(query_layer, [batch_size, self.input_length, num_attention_heads, attention_head_size]),
                 [0, 2, 1, 3])
         key_layer = tf.transpose(
-                tf.reshape(key_layer, [batch_size, seq_length, num_attention_heads, attention_head_size]),
+                tf.reshape(key_layer, [batch_size, self.input_length, num_attention_heads, attention_head_size]),
                 [0, 2, 3, 1])
         
         # attention_scores: [B, N, S, S]
@@ -313,14 +317,14 @@ class BertModel(object):
         attention_scores = self._dropout(attention_scores, attention_prob_dropout_prob)
 
         value_layer = tf.transpose(
-            tf.reshape(value_layer, [batch_size, seq_length, num_attention_heads, attention_head_size]),
+            tf.reshape(value_layer, [batch_size, self.input_length, num_attention_heads, attention_head_size]),
             [0, 2, 1, 3])
         # [B, N, S, h]
         context_layer = tf.matmul(attention_scores, value_layer)
         # [B, S, N, h]
         context_layer = tf.transpose(context_layer, [0, 2, 1, 3])
         # [B, S, N * h]
-        context_layer = tf.reshape(context_layer, [batch_size, seq_length, num_attention_heads * attention_head_size])
+        context_layer = tf.reshape(context_layer, [batch_size, self.input_length, num_attention_heads * attention_head_size])
 
         return context_layer
     
@@ -329,31 +333,98 @@ class BertModel(object):
         with tf.variable_scope('output_layer'):
             self.logits = tf.layers.dense(sequence_output, vocab_size, name='output')
     
-    def _compute_loss(self):
+    def _compute_loss(self, batch_size):
         """compute the cross-entropy loss."""
-        batch_size = self.output_ids.shape.as_list()[0]
         # 1 refers to occurring word, 0 refers to masked word in original input_mask
         input_mask = tf.cast(self.input_mask, tf.float32)
         loss_mask = 1 - input_mask
-
+    
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.output_ids, logits=self.logits)
         self.loss_bs = tf.reduce_sum(loss * loss_mask) / batch_size
+        tf.summary.scalar('loss_bs', self.loss_bs)
     
     def _update(self, learning_rate, decay_step, lr_limit):
         """update the parameters."""
         self.learning_rate = tf.maximum(tf.constant(lr_limit),
                                         tf.train.polynomial_decay(learning_rate, self.global_step, 
                                                                   decay_step, power=0.5, cycle=True))
+        tf.summary.scalar('learning_rate', self.learning_rate)        
         optimizer = tf.train.AdamOptimizer(self.learning_rate, name='Adam')
         parameters = tf.trainable_variables()
         gradients = tf.gradients(self.loss_bs, parameters, colocate_gradients_with_ops=True)
-        clip_gradients = tf.clip_by_global_norm(gradients, 5.0)
-        self.upgrade = optimizer.apply_gradients(zip(clip_gradients, parameters), global_step=self.global_step)
+        clipped_gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+        self.upgrade = optimizer.apply_gradients(zip(clipped_gradients, parameters), global_step=self.global_step)
 
     def _infer(self):
         """get the prediction index in inference."""
         outputs = tf.nn.softmax(self.logits)
         self.predict_idx = tf.argmax(outputs, axis=2)
+    
+    def train(self, sess, data):
+        assert self.is_training
+        
+        feed = {self.input_ids: data.input_ids,
+                self.input_mask: data.input_mask,
+                self.input_length: data.input_length,
+                self.output_ids: data.output_ids}
+        
+        return sess.run([self.global_step, 
+                         self.learning_rate, 
+                         self.loss_bs,
+                         self.upgrade,
+                         self.logits], feed_dict=feed)
+
+    def infer(self, sess, data):
+        assert not self.is_training
+
+        feed = {self.input_ids: data.input_ids,
+                self.input_length: data.input_length,
+                self.input_mask: data.input_mask}
+            
+        return sess.run([self.predict_idx], feed_dict=feed)
 
 if __name__ == '__main__':
-    print(config.initializer)
+    # 1. build graph
+    train_graph = tf.Graph()
+    with train_graph.as_default():
+        train_model = BertModel(config=config_, is_training=True)
+    
+    # 2. create session
+    sess_conf = tf.ConfigProto(intra_op_parallelism_threads=8, inter_op_parallelism_threads=8)
+    sess_conf.gpu_options.allow_growth = True
+    train_sess = tf.Session(config=sess_conf, graph=train_graph)
+
+    # 3. check whether load the existing checkpoint file
+    with train_graph.as_default():
+        loaded_model, global_step = _mh.create_or_load(
+            train_model, config_.ckpt_path, train_sess)
+
+    # 4. Tensorboard
+    summary_writer = tf.summary.FileWriter(
+		os.path.join(config_.ckpt_path, config_.summary_name), train_graph)
+
+    # just test
+    input_ids = np.array([[10, 128, 10, 0, 120], [20, 3, 0, 0, 30]], dtype=np.int32)
+    input_length = 5
+    input_mask = np.array([[1, 1, 1, 0, 1], [1, 1, 0, 0, 1]], dtype=np.int32)
+    output_ids = np.array([[10, 128, 10, 1, 120], [20, 3, 2, 5, 30]], dtype=np.int32)
+
+    import collections
+    data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids')
+    data.input_ids = input_ids
+    data.input_length = input_length
+    data.input_mask = input_mask
+    data.output_ids = output_ids
+
+    res = train_model.train(train_sess, data)
+    print(res[2])
+    print(res[4].shape)
+
+    # # 5. train
+    # train_steps = int(config_.steps)
+    # batch_size = int(config_.batch_size)
+    # while global_step < train_steps:
+    #     # TODO iterate data
+    #     pass
+
+    

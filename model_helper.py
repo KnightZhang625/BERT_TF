@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import tensorflow as tf
 from log import log_info as _info
 from log import log_error as _error
@@ -20,3 +22,21 @@ def select_initializer(itype=None, seed=None, init_weight=0.01):
 def get_specific_scope_params(scope=''):
     """return variables belonging to the specific scope"""
     return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+
+def create_or_load(model, ckpt_path, session, force=False):
+    """create a new model or load from the existing one"""
+    latest_ckpt = tf.train.latest_checkpoint(ckpt_path)
+    if latest_ckpt and not force:
+        try:
+            model.saver.restore(session, latest_ckpt)
+        except Exception as e:
+            _error(e, head='ERROR')
+            raise e
+        _info('successfully load model from <{}>'.format(latest_ckpt), head='INFO')
+    else:
+        session.run(tf.global_variables_initializer())
+        session.run(tf.local_variables_initializer())
+        session.run(tf.tables_initializer())
+        _info('successfully create a new model', head='INFO')
+    global_step = model.global_step.eval(session=session)
+    return model,global_step

@@ -32,22 +32,30 @@ class Config(NoNewAttrs):
     init_weight = 0.01
 
     # dimension
-    vocab_size = 100
+    vocab_size = 200
     embedding_size = 32
 
     # positional embedding type
-    pos_type = 'trigonometrical'
+    pos_type = 'normal'
 
     # Transformer
     encoder_layer = 4
     num_attention_heads = 4
     forward_size = 32
-    forward_ac = tf.nn.relu
+    forward_ac = 'relu'
     attention_ac = None
 
     # update
     learning_rate = 5e-4
     decay_step = 1000
     lr_limit = 1e-4
+
+    # save model path
+    ckpt_path = './models'
+    summary_name = 'tensorboard'
+
+    # train
+    steps = 10
+    batch_size = 2
 
 config = Config()
