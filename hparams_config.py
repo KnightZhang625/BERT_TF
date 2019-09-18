@@ -36,7 +36,9 @@ class Config(NoNewAttrs):
     embedding_size = 32
 
     # positional embedding type
-    pos_type = 'normal'
+    # if use trigonometrical, please feed positional embeddings to the model,
+    # and vice versa for using normal
+    pos_type = 'trigonometrical'
 
     # Transformer
     encoder_layer = 4

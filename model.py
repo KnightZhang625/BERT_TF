@@ -21,7 +21,6 @@ import os
 import copy
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.autograph as autograph
 import model_helper as _mh
 
 from hparams_config import config as config_
@@ -96,7 +95,7 @@ class BertModel(object):
         """add positional embeddings to the original embeddings.
 
         Args:
-            pos_type: the positional type to use, either 'normal' or 'positional_embedding'.
+            pos_type: the positional type to use, either 'normal' or 'positional_embeddings'.
             embedded_input: original embeddings, [batch_size, seq_length, embedding_size].
             embedding_size: embedding size.
             dropout_prob: dropout probability, refer to the 'rate' parameter in tf.nn.dropout()
@@ -106,30 +105,38 @@ class BertModel(object):
         Returns:
             output: identical type and shape to the embedded input.
         """
-        # input_shape = embedded_input.shape
-        # input_shape = tf.shape(embedded_input)
-        # seq_length, embeded_size = input_shape[1], input_shape[2]
+
+        def cond_inner(embedding_size, i, j, positional_embeddings):
+            return tf.less(j, tf.cast(embedding_size, dtype=tf.int32))
+
+        def body_inner(embedding_size, i, j, positional_embeddings):
+            j = tf.cast(j, dtype=tf.float32)
+            idx = tf.cast(embedding_size * i + tf.cast(j, dtype=tf.int32), tf.int32)
+            positional_embeddings.write(idx, tf.cast(i, dtype=tf.float32) / np.power(10000, (j - j%2)/tf.cast(embedding_size, dtype=tf.float32)))
+            return embedding_size, i, j+1, positional_embeddings
+        
+        def cond(embedding_size, i, positional_embeddings):
+            return tf.less(i, self.input_length)
+        
+        def body(embedding_size, i, positional_embeddings):
+            j = 0
+            embedding_size, i, j, positional_embeddings = tf.while_loop(cond_inner, body_inner, [embedding_size, i, j, positional_embeddings])
+            return embedding_size, i+1, positional_embeddings
 
         assert_op = tf.assert_less_equal(self.input_length, max_position_embedding)
         with tf.control_dependencies([assert_op]):
             # select sin & cos or normal positional embedding
             if pos_type == 'normal':
                 positional_embeddings = tf.get_variable(
-                    name='positional_embedding',
+                    name='positional_embeddings',
                     shape=[max_position_embedding, embedding_size],
                     dtype=tf.float32)
                 # slice the positional embeddings according to the actual length
                 ac_pos_embed = tf.slice(positional_embeddings, [0, 0], [self.input_length, -1])
                 embedded_input += ac_pos_embed
             elif pos_type == 'trigonometrical':
-                # TODO bug happens, use tf.while_loop to fix
-                positional_embeddings = np.array(
-                    [[pos / np.power(10000, (j - j%2)/embeded_size) for j in range(embeded_size)]
-                    for pos in range(self.input_length)])
-                # positional_embeddings = _create_embeddings(seq_length, embeded_size)                
-                positional_embeddings[:, 0::2] = np.sin(positional_embeddings[:, 0::2])
-                positional_embeddings[:, 1::2] = np.cos(positional_embeddings[:, 1::2])
-                positional_embeddings = tf.convert_to_tensor(positional_embeddings)
+                self.positional_embeddings = tf.placeholder(dtype=tf.float32, shape=[None, None], name='positional_embeddings')
+                positional_embeddings = tf.convert_to_tensor(self.positional_embeddings)
                 embedded_input += positional_embeddings
             else:
                 _error('unknown positional type <{}>'.format(pos_type), head='ERROR')
@@ -366,7 +373,8 @@ class BertModel(object):
         feed = {self.input_ids: data.input_ids,
                 self.input_mask: data.input_mask,
                 self.input_length: data.input_length,
-                self.output_ids: data.output_ids}
+                self.output_ids: data.output_ids,
+                self.positional_embeddings: data.positional_embeddings}
         
         return sess.run([self.global_step, 
                          self.learning_rate, 
@@ -379,7 +387,8 @@ class BertModel(object):
 
         feed = {self.input_ids: data.input_ids,
                 self.input_length: data.input_length,
-                self.input_mask: data.input_mask}
+                self.input_mask: data.input_mask,
+                self.positional_embeddings: data.positional_embeddings}
             
         return sess.run([self.predict_idx], feed_dict=feed)
 
@@ -410,11 +419,12 @@ if __name__ == '__main__':
     output_ids = np.array([[10, 128, 10, 1, 120], [20, 3, 2, 5, 30]], dtype=np.int32)
 
     import collections
-    data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids')
+    data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids, pos_emb')
     data.input_ids = input_ids
     data.input_length = input_length
     data.input_mask = input_mask
     data.output_ids = output_ids
+    data.positional_embeddings = _mh.create_pos_embeddings(config_.embedding_size, input_length)
 
     res = train_model.train(train_sess, data)
     print(res[2])
@@ -426,5 +436,3 @@ if __name__ == '__main__':
     # while global_step < train_steps:
     #     # TODO iterate data
     #     pass
-
-    
