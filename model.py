@@ -27,6 +27,8 @@ from hparams_config import config as config_
 from log import log_info as _info
 from log import log_error as _error
 
+__all__ = ['BertModel']
+
 class BertModel(object):
     def __init__(self, config, is_training, scope=None):
         config = copy.deepcopy(config_)
@@ -108,25 +110,8 @@ class BertModel(object):
         Returns:
             output: identical type and shape to the embedded input.
         """
-
-        def cond_inner(embedding_size, i, j, positional_embeddings):
-            return tf.less(j, tf.cast(embedding_size, dtype=tf.int32))
-
-        def body_inner(embedding_size, i, j, positional_embeddings):
-            j = tf.cast(j, dtype=tf.float32)
-            idx = tf.cast(embedding_size * i + tf.cast(j, dtype=tf.int32), tf.int32)
-            positional_embeddings.write(idx, tf.cast(i, dtype=tf.float32) / np.power(10000, (j - j%2)/tf.cast(embedding_size, dtype=tf.float32)))
-            return embedding_size, i, j+1, positional_embeddings
-        
-        def cond(embedding_size, i, positional_embeddings):
-            return tf.less(i, self.input_length)
-        
-        def body(embedding_size, i, positional_embeddings):
-            j = 0
-            embedding_size, i, j, positional_embeddings = tf.while_loop(cond_inner, body_inner, [embedding_size, i, j, positional_embeddings])
-            return embedding_size, i+1, positional_embeddings
-
         assert_op = tf.assert_less_equal(self.input_length, max_position_embedding)
+        self.pos_type = pos_type
         with tf.control_dependencies([assert_op]):
             # select sin & cos or normal positional embedding
             if pos_type == 'normal':
@@ -371,13 +356,18 @@ class BertModel(object):
     
     def train(self, sess, data):
         assert self.is_training
-        
-        feed = {self.input_ids: data.input_ids,
-                self.input_mask: data.input_mask,
-                self.input_length: data.input_length,
-                self.output_ids: data.output_ids,
-                self.positional_embeddings: data.positional_embeddings}
-        
+        if self.pos_type is 'trigonometrical':
+            feed = {self.input_ids: data.input_ids,
+                    self.input_mask: data.input_mask,
+                    self.input_length: data.input_length,
+                    self.output_ids: data.output_ids,
+                    self.positional_embeddings: data.positional_embeddings}
+        else:
+            feed = {self.input_ids: data.input_ids,
+                    self.input_mask: data.input_mask,
+                    self.input_length: data.input_length,
+                    self.output_ids: data.output_ids}
+
         return sess.run([self.global_step, 
                          self.learning_rate, 
                          self.loss_bs,
@@ -388,83 +378,14 @@ class BertModel(object):
     def infer(self, sess, data):
         assert not self.is_training
 
-        feed = {self.input_ids: data.input_ids,
-                self.input_length: data.input_length,
-                self.input_mask: data.input_mask,
-                self.positional_embeddings: data.positional_embeddings}
-            
+        if self.pos_type is 'trigonometrical':
+            feed = {self.input_ids: data.input_ids,
+                    self.input_length: data.input_length,
+                    self.input_mask: data.input_mask,
+                    self.positional_embeddings: data.positional_embeddings}
+        else:
+            feed = {self.input_ids: data.input_ids,
+                    self.input_length: data.input_length,
+                    self.input_mask: data.input_mask}
+
         return sess.run([self.predict_idx], feed_dict=feed)
-
-if __name__ == '__main__':
-    # 1. build graph
-    train_graph = tf.Graph()
-    with train_graph.as_default():
-        train_model = BertModel(config=config_, is_training=True)
-    
-    # 2. create session
-    sess_conf = tf.ConfigProto(intra_op_parallelism_threads=8, inter_op_parallelism_threads=8)
-    sess_conf.gpu_options.allow_growth = True
-    train_sess = tf.Session(config=sess_conf, graph=train_graph)
-
-    # 3. check whether load the existing checkpoint file
-    with train_graph.as_default():
-        loaded_model, global_step = _mh.create_or_load(
-            train_model, config_.ckpt_path, train_sess)
-
-    # 4. Tensorboard
-    summary_writer = tf.summary.FileWriter(
-		os.path.join(config_.ckpt_path, config_.summary_name), train_graph)
-
-    """The following is just for test"""
-    input_ids = np.array([[10, 128, 10, 0, 120], [20, 3, 0, 0, 30]], dtype=np.int32)
-    input_length = 5
-    input_mask = np.array([[1, 1, 1, 0, 1], [1, 1, 0, 0, 1]], dtype=np.int32)
-    output_ids = np.array([[10, 128, 10, 1, 120], [20, 3, 2, 5, 30]], dtype=np.int32)
-
-    import collections
-    data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids positional_embeddings')
-    data.input_ids = input_ids
-    data.input_length = input_length
-    data.input_mask = input_mask
-    data.output_ids = output_ids
-    data.positional_embeddings = _mh.create_pos_embeddings(config_.embedding_size, input_length)
-
-    for i in range(1000):
-        res = train_model.train(train_sess, data)
-        global_step = res[0]
-        loss = res[2]
-        _info('loss: {}'.format(loss), head=global_step)
-        summary_writer.add_summary(res[5], global_step)
-    train_model.saver.save(
-        train_sess,
-        config_.ckpt_path,
-        global_step=global_step)
-
-    infer_graph = tf.Graph()
-    with infer_graph.as_default():
-        infer_model = BertModel(config=config_, is_training=False)
-    
-    sess_conf = tf.ConfigProto(intra_op_parallelism_threads=8, inter_op_parallelism_threads=8)
-    sess_conf.gpu_options.allow_growth = True
-    infer_sess = tf.Session(config=sess_conf, graph=infer_graph)
-
-    with infer_graph.as_default():
-        loaded_model, global_step = _mh.create_or_load(
-            infer_model, config_.ckpt_path, infer_sess)
-
-    infer_data = collections.namedtuple('data', 'input_ids input_length input_mask positional_embeddings')
-    infer_data.input_ids = input_ids
-    infer_data.input_length = input_length
-    infer_data.input_mask = input_mask
-    infer_data.positional_embeddings = _mh.create_pos_embeddings(config_.embedding_size, input_length)
-    
-    res = infer_model.infer(infer_sess, infer_data)
-    print(res)
-    """"end for test"""
-    
-    # # 5. train
-    # train_steps = int(config_.steps)
-    # batch_size = int(config_.batch_size)
-    # while global_step < train_steps:
-    #     # TODO iterate data
-    #     pass

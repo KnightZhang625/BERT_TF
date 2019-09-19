@@ -29,7 +29,9 @@ def get_specific_scope_params(scope=''):
 # Model
 def create_or_load(model, ckpt_path, session, force=False):
     """create a new model or load from the existing one"""
-    latest_ckpt = tf.train.latest_checkpoint(ckpt_path)
+    dir_path = '/'.join(ckpt_path.split('/')[:-1])
+    latest_ckpt = tf.train.latest_checkpoint(dir_path)
+    
     if latest_ckpt and not force:
         try:
             model.saver.restore(session, latest_ckpt)
