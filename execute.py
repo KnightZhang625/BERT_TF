@@ -1,6 +1,7 @@
 # coding:utf-8
 
 import os
+import argparse
 import collections
 import tensorflow as tf
 import model_helper as _mh
@@ -104,5 +105,11 @@ def infer(config):
     return prediciton
 
 if __name__ == '__main__':
-    train(config_)
-    print(infer(config_))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--type', type=str, choices=['train', 'infer'], required=True, help='select train or infer')
+    args = parser.parse_args()
+    
+    if args.type == 'train':
+        train(config_)
+    else:
+        print(infer(config_))
