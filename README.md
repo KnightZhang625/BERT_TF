@@ -16,10 +16,14 @@ python model.py
 ```
 
 ## Log  
-- 18th Sep  
->>finish pre-train Bert, write train example  
 
->>TODO: <1>data utils; <2>fully train procedure; <3>fine tune tasks;  
+- 19th Sep  
+>>finish fully train procedure.  
+
+- 18th Sep  
+>>finish pre-train Bert, write train example.    
+
+>>TODO: <1>data utils; ~~<2>fully train procedure;~~ <3>fine tune tasks;  
 
 ## Reference  
 
