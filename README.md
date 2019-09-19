@@ -12,7 +12,7 @@ This package will be the foundation on which our platform would be based on, it 
 
 ## Run example  
 ```shell
-python model.py
+python execute.py --type [train, infer]
 ```
 
 ## Log  
