@@ -60,3 +60,16 @@ def create_pos_embeddings(embeded_size, input_length):
     positional_embeddings[:, 1::2] = np.cos(positional_embeddings[:, 1::2])
     
     return positional_embeddings
+
+# create mask for left-to-right language model
+def create_lr_mask(batch_size, input_length):
+    """as input length changes, could not use placeholder
+       to create triangle matrix in tensorflow, cause tensorflow
+       does not support create triangle matrix.
+    """
+    triangle_matrix = np.tile(
+            np.tri(input_length, input_length, 0, dtype=np.float),
+            [batch_size, 1, 1])
+    mask = tf.cast(triangle_matrix, dtype=tf.float32)
+
+    return mask

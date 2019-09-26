@@ -30,6 +30,7 @@ from log import log_error as _error
 __all__ = ['BertModel']
 
 class BertModel(object):
+    """base BERT model"""
     def __init__(self, config, is_training, scope=None):
         config = copy.deepcopy(config_)
         self.is_training = is_training
