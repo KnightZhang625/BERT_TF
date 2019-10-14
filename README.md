@@ -16,6 +16,9 @@ python execute.py --type [train, infer]
 ```
 
 ## Log  
+- 14th Oct  
+>>finish UniLM, need to rewrite infer()    
+
 - 25th Sep  
 >>decide to implement UNI-LM  
 
