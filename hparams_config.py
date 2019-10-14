@@ -59,5 +59,6 @@ class Config(NoNewAttrs):
     # train
     steps = 10
     batch_size = 2
+    train_type = 0  # 0 for seq2seq, 1 for left-to-right, this parameter is just for UniLM
 
 config = Config()

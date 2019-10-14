@@ -8,6 +8,7 @@ import model_helper as _mh
 
 from pathlib import Path
 from model import BertModel
+from model_UniLM import UniLM
 from hparams_config import config as config_
 from log import log_info as _info
 from log import log_error as _error
@@ -18,7 +19,8 @@ def train(config):
     # build the training graph
     train_graph = tf.Graph()
     with train_graph.as_default():
-        train_model = BertModel(config=config, is_training=True)
+        # train_model = BertModel(config=config, is_training=True)
+        train_model = UniLM(config=config, is_training=True)    # for UniLM
         _info('finish building graph', head='INFO')
     
     # create session
@@ -38,22 +40,25 @@ def train(config):
         os.path.join(config.ckpt_path, config.summary_name), train_graph)
     
     # train
-    train_data = collections.namedtuple('data', 'input_ids input_length input_mask output_ids positional_embeddings')
+    train_data = collections.namedtuple('data', 'input_ids input_length output_length input_mask output_ids positional_embeddings')
     iter_steps = config.steps
 
     # the following code is just for test
-    """
+    
     import numpy as np
-    input_ids = np.array([[10, 128, 10, 0, 120], [20, 3, 0, 0, 30]], dtype=np.int32)
-    input_length = 5
-    input_mask = np.array([[1, 1, 1, 0, 1], [1, 1, 0, 0, 1]], dtype=np.int32)
-    output_ids = np.array([[10, 128, 10, 1, 120], [20, 3, 2, 5, 30]], dtype=np.int32)
+    input_ids = np.array([[10, 128, 10, 1, 120, 3, 2, 0], [20, 3, 2, 5, 30, 5, 1, 2]], dtype=np.int32)
+    input_length = 8    # actually, for UniLM, input length = source + target
+    output_length = 3   # in UniLM, output_length = target, not for traditional BERT
+    # input_mask = np.array([[1, 1, 1, 0, 1], [1, 1, 0, 0, 1]], dtype=np.int32)     # comment this line cause this is for traditional BERT model
+    input_mask = _mh.create_lr_mask(config.batch_size, output_length)
+    output_ids = np.array([[10, 128, 10, 1, 120, 3, 2, 0], [20, 3, 2, 5, 30, 5, 1, 2]], dtype=np.int32)
     train_data.input_ids = input_ids
     train_data.input_length = input_length
+    train_data.output_length = output_length    # for UniLM
     train_data.input_mask = input_mask
     train_data.output_ids = output_ids
     train_data.positional_embeddings = _mh.create_pos_embeddings(config.embedding_size, input_length)
-    """
+    
 
     while int(global_step) < int(iter_steps):
         for _ in range(100):

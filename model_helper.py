@@ -67,9 +67,11 @@ def create_lr_mask(batch_size, input_length):
        to create triangle matrix in tensorflow, cause tensorflow
        does not support create triangle matrix.
     """
-    triangle_matrix = np.tile(
-            np.tri(input_length, input_length, 0, dtype=np.float),
-            [batch_size, 1, 1])
-    mask = tf.cast(triangle_matrix, dtype=tf.float32)
+    # triangle_matrix = np.tile(
+    #         np.tri(input_length, input_length, 0, dtype=np.float),
+    #         [batch_size, 1, 1])
+    # mask = tf.cast(triangle_matrix, dtype=tf.float32)
 
-    return mask
+    triangle_matrix = np.tri(input_length, input_length, 0, dtype=np.float)
+    
+    return triangle_matrix

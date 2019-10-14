@@ -65,7 +65,7 @@ class BertModel(object):
             # Encoder Blocks
             with tf.variable_scope('encoder'):
                 # get attention mask
-                attention_mask = self._create_attention_mask(self.input_ids, self.input_mask, config.batch_size)
+                attention_mask = self._create_attention_mask(config.batch_size)
                 # Multi-head, multi-layer Transformer
                 sequence_output = self.transformer_model(embedded_input_pos,
                                                          config.batch_size,
@@ -147,7 +147,7 @@ class BertModel(object):
             return input_tensor
         return tf.nn.dropout(input_tensor, rate=dropout_prob)
 
-    def _create_attention_mask(self, input_idx, input_mask, batch_size):
+    def _create_attention_mask(self, batch_size):
         """create mask for attention matrix.
 
         Args:
@@ -169,9 +169,9 @@ class BertModel(object):
         #          1 1 0 1 1       1 0 1 1 1       1 1 1 1 0
         #          1 1 0 1 1       1 0 1 1 1       1 1 1 1 0 
         initial_mask = tf.ones([batch_size, self.input_length, 1], dtype=tf.float32)    
-        input_mask = tf.cast(tf.reshape(input_mask, [batch_size, 1, self.input_length]), tf.float32)
+        input_mask = tf.cast(tf.reshape(self.input_mask, [batch_size, 1, self.input_length]), tf.float32)
 
-        mask = initial_mask * initial_mask
+        mask = initial_mask * input_mask
         
         return mask
 
