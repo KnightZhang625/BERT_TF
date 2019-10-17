@@ -512,7 +512,7 @@ node {
     key: "f"
     value {
       func {
-        name: "__inference_Dataset_flat_map_flat_map_fn_43"
+        name: "__inference_Dataset_flat_map_flat_map_fn_45"
       }
     }
   }
@@ -530,6 +530,11 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -537,6 +542,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -641,6 +647,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -648,6 +662,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -686,7 +701,7 @@ node {
         dtype: DT_INT64
         tensor_shape {
         }
-        int64_val: 200
+        int64_val: 1000
       }
     }
   }
@@ -726,6 +741,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -733,6 +756,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -819,6 +843,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -826,6 +858,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -871,6 +904,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -878,6 +919,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -922,6 +964,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -929,6 +979,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -993,6 +1044,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -1016,6 +1075,14 @@ node {
             size: 1
           }
         }
+        shape {
+          dim {
+            size: -1
+          }
+          dim {
+            size: 1
+          }
+        }
       }
     }
   }
@@ -1023,6 +1090,7 @@ node {
     key: "output_types"
     value {
       list {
+        type: DT_FLOAT
         type: DT_FLOAT
         type: DT_FLOAT
       }
@@ -1686,7 +1754,7 @@ node {
   name: "sub"
   op: "Sub"
   input: "dense/BiasAdd"
-  input: "IteratorGetNext:1"
+  input: "IteratorGetNext:2"
   attr {
     key: "T"
     value {
@@ -1878,7 +1946,7 @@ node {
 node {
   name: "gradients/sub_grad/Shape_1"
   op: "Shape"
-  input: "IteratorGetNext:1"
+  input: "IteratorGetNext:2"
   attr {
     key: "T"
     value {
@@ -3471,7 +3539,7 @@ node {
         dtype: DT_FLOAT
         tensor_shape {
         }
-        float_val: 0.5
+        float_val: 0.10000000149011612
       }
     }
   }
@@ -7123,7 +7191,7 @@ node {
         dtype: DT_STRING
         tensor_shape {
         }
-        string_val: "_temp_a2b19bb58e974fc8811fb1746b075524/part"
+        string_val: "_temp_80e6b150afe34752bc31883afebb17c0/part"
       }
     }
   }
@@ -8024,106 +8092,7 @@ node {
 library {
   function {
     signature {
-      name: "__inference_Dataset_from_generator_get_iterator_id_fn_28"
-      input_arg {
-        name: "args_0"
-        type: DT_INT32
-      }
-      output_arg {
-        name: "identity"
-        type: DT_INT64
-      }
-      is_stateful: true
-      control_output: "PyFunc"
-    }
-    node_def {
-      name: "PyFunc"
-      op: "PyFunc"
-      attr {
-        key: "Tin"
-        value {
-          list {
-          }
-        }
-      }
-      attr {
-        key: "Tout"
-        value {
-          list {
-            type: DT_INT64
-          }
-        }
-      }
-      attr {
-        key: "_output_shapes"
-        value {
-          list {
-            shape {
-              unknown_rank: true
-            }
-          }
-        }
-      }
-      attr {
-        key: "token"
-        value {
-          s: "pyfunc_0"
-        }
-      }
-    }
-    node_def {
-      name: "Identity"
-      op: "Identity"
-      input: "PyFunc:output:0"
-      input: "^PyFunc"
-      attr {
-        key: "T"
-        value {
-          type: DT_INT64
-        }
-      }
-      attr {
-        key: "_output_shapes"
-        value {
-          list {
-            shape {
-              unknown_rank: true
-            }
-          }
-        }
-      }
-    }
-    ret {
-      key: "identity"
-      value: "Identity:output:0"
-    }
-    attr {
-      key: "_input_shapes"
-      value {
-        list {
-          shape {
-          }
-        }
-      }
-    }
-    control_ret {
-      key: "PyFunc"
-      value: "PyFunc"
-    }
-    arg_attr {
-      value {
-        attr {
-          key: "_user_specified_name"
-          value {
-            s: "args_0"
-          }
-        }
-      }
-    }
-  }
-  function {
-    signature {
-      name: "__inference_Dataset_from_generator_finalize_fn_40"
+      name: "__inference_Dataset_from_generator_finalize_fn_42"
       input_arg {
         name: "args_0"
         type: DT_INT64
@@ -8225,7 +8194,106 @@ library {
   }
   function {
     signature {
-      name: "__inference_Dataset_flat_map_flat_map_fn_43"
+      name: "__inference_Dataset_from_generator_get_iterator_id_fn_28"
+      input_arg {
+        name: "args_0"
+        type: DT_INT32
+      }
+      output_arg {
+        name: "identity"
+        type: DT_INT64
+      }
+      is_stateful: true
+      control_output: "PyFunc"
+    }
+    node_def {
+      name: "PyFunc"
+      op: "PyFunc"
+      attr {
+        key: "Tin"
+        value {
+          list {
+          }
+        }
+      }
+      attr {
+        key: "Tout"
+        value {
+          list {
+            type: DT_INT64
+          }
+        }
+      }
+      attr {
+        key: "_output_shapes"
+        value {
+          list {
+            shape {
+              unknown_rank: true
+            }
+          }
+        }
+      }
+      attr {
+        key: "token"
+        value {
+          s: "pyfunc_0"
+        }
+      }
+    }
+    node_def {
+      name: "Identity"
+      op: "Identity"
+      input: "PyFunc:output:0"
+      input: "^PyFunc"
+      attr {
+        key: "T"
+        value {
+          type: DT_INT64
+        }
+      }
+      attr {
+        key: "_output_shapes"
+        value {
+          list {
+            shape {
+              unknown_rank: true
+            }
+          }
+        }
+      }
+    }
+    ret {
+      key: "identity"
+      value: "Identity:output:0"
+    }
+    attr {
+      key: "_input_shapes"
+      value {
+        list {
+          shape {
+          }
+        }
+      }
+    }
+    control_ret {
+      key: "PyFunc"
+      value: "PyFunc"
+    }
+    arg_attr {
+      value {
+        attr {
+          key: "_user_specified_name"
+          value {
+            s: "args_0"
+          }
+        }
+      }
+    }
+  }
+  function {
+    signature {
+      name: "__inference_Dataset_flat_map_flat_map_fn_45"
       input_arg {
         name: "args_0"
         type: DT_INT32
@@ -8276,7 +8344,7 @@ library {
         key: "finalize_func"
         value {
           func {
-            name: "__inference_Dataset_from_generator_finalize_fn_40"
+            name: "__inference_Dataset_from_generator_finalize_fn_42"
           }
         }
       }
@@ -8292,7 +8360,7 @@ library {
         key: "next_func"
         value {
           func {
-            name: "__inference_Dataset_from_generator_generator_next_fn_35"
+            name: "__inference_Dataset_from_generator_generator_next_fn_37"
           }
         }
       }
@@ -8310,6 +8378,11 @@ library {
                 size: 1
               }
             }
+            shape {
+              dim {
+                size: 1
+              }
+            }
           }
         }
       }
@@ -8317,6 +8390,7 @@ library {
         key: "output_types"
         value {
           list {
+            type: DT_FLOAT
             type: DT_FLOAT
             type: DT_FLOAT
           }
@@ -8374,7 +8448,7 @@ library {
   }
   function {
     signature {
-      name: "__inference_Dataset_from_generator_generator_next_fn_35"
+      name: "__inference_Dataset_from_generator_generator_next_fn_37"
       input_arg {
         name: "args_0"
         type: DT_INT64
@@ -8385,6 +8459,10 @@ library {
       }
       output_arg {
         name: "identity_1"
+        type: DT_FLOAT
+      }
+      output_arg {
+        name: "identity_2"
         type: DT_FLOAT
       }
       is_stateful: true
@@ -8408,6 +8486,7 @@ library {
           list {
             type: DT_FLOAT
             type: DT_FLOAT
+            type: DT_FLOAT
           }
         }
       }
@@ -8418,6 +8497,11 @@ library {
             shape {
               dim {
                 size: 2
+              }
+            }
+            shape {
+              dim {
+                size: 1
               }
             }
             shape {
@@ -8483,6 +8567,30 @@ library {
         }
       }
     }
+    node_def {
+      name: "Identity_2"
+      op: "Identity"
+      input: "PyFunc:output:2"
+      input: "^PyFunc"
+      attr {
+        key: "T"
+        value {
+          type: DT_FLOAT
+        }
+      }
+      attr {
+        key: "_output_shapes"
+        value {
+          list {
+            shape {
+              dim {
+                size: 1
+              }
+            }
+          }
+        }
+      }
+    }
     ret {
       key: "identity"
       value: "Identity:output:0"
@@ -8490,6 +8598,10 @@ library {
     ret {
       key: "identity_1"
       value: "Identity_1:output:0"
+    }
+    ret {
+      key: "identity_2"
+      value: "Identity_2:output:0"
     }
     attr {
       key: "_input_shapes"

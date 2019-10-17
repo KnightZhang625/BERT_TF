@@ -3,7 +3,7 @@
 
 import functools
 import tensorflow as tf
-
+tf.enable_eager_execution()
 
 import sys
 import codecs
@@ -24,37 +24,48 @@ handlers = [
 logging.getLogger('tensorflow').handlers = handlers
 
 # <1> Train the Model
-# def model_fn(features, labels, mode, params):
-#     if isinstance(features, dict):  # For serving
-#         features = features['feature']
-    
-#     predictions = tf.layers.dense(features, 1)
+def model_fn(features, labels, mode, params):
+    if isinstance(features, dict):  # For serving
+        input_ = features['data']
+        labels = features['label']
 
-#     if mode == tf.estimator.ModeKeys.PREDICT:
-#         return tf.estimator.EstimatorSpec(mode, predictions=predictions)
-#     else:
-#         loss = tf.nn.l2_loss(predictions - labels)
-#         if mode == tf.estimator.ModeKeys.EVAL:
-#             return tf.estimator.EstimatorSpec(mode, loss=loss)
-#         elif mode == tf.estimator.ModeKeys.TRAIN:
-#             train_op = tf.train.AdamOptimizer(learning_rate=0.5).minimize(loss, global_step=tf.train.get_global_step())
-#             return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
-#         else:
-#             raise NotImplementedError()
+    predictions = tf.layers.dense(input_, 1)
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+    else:
+        print(labels)
+        print(predictions)
+        sys.exit()
+        loss = tf.nn.l2_loss(predictions - labels)
+        if mode == tf.estimator.ModeKeys.EVAL:
+            return tf.estimator.EstimatorSpec(mode, loss=loss)
+        elif mode == tf.estimator.ModeKeys.TRAIN:
+            train_op = tf.train.AdamOptimizer(learning_rate=0.5).minimize(loss, global_step=tf.train.get_global_step())
+            return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+        else:
+            raise NotImplementedError()
 
-# def train_generator_fn():
-#     for number in range(100):
-#         yield [number, number], [2 * number]
+def train_generator_fn():
+    for number in range(100):
+        data = {'data': [number, number], 'label': [2 * number]}
+        yield data
 
-# def train_input_fn():
-#     shapes, types = (2, 1), (tf.float32, tf.float32)
-#     dataset = tf.data.Dataset.from_generator(
-#         train_generator_fn, output_types=types, output_shapes=shapes)
-#     dataset = dataset.batch(5).repeat(200)
-#     return dataset
+def train_input_fn():
+    output_types = {'data': tf.float32, 'label': tf.float32}
+    output_shapes = {'data': (2), 'label': (1)}
+    # shapes, types = (2, 1), (tf.float32, tf.float32)
+    dataset = tf.data.Dataset.from_generator(
+        train_generator_fn, output_types=output_types, output_shapes=output_shapes)
+    dataset = dataset.batch(5).repeat(200)
+    return dataset
 
-# estimator = tf.estimator.Estimator(model_fn, 'model', params={})
-# estimator.train(train_input_fn)
+# for d in train_input_fn():
+#     print(d['data'])
+#     print(d['label'])
+#     input()
+
+estimator = tf.estimator.Estimator(model_fn, 'model', params={})
+estimator.train(train_input_fn) 
 
 # <2> Reload and Predict
 def my_service():
@@ -80,11 +91,11 @@ def my_service():
 The following will introduce a better option, even though the guides and documentation are pretty scarce and vague about this,
 exciting will come while reading the following."""
 
-# def serving_input_receiver_fn():
-#     number = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='number')
-#     receiver_tensors = {'number': number}
-#     features = tf.tile(number, multiples=[1, 2])
-#     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
+def serving_input_receiver_fn():
+    number = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='number')
+    receiver_tensors = {'number': number}
+    features = {'data': tf.tile(number, multiples=[1, 2]), 'label': tf.zeros(0)}
+    return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 
 # estimator = tf.estimator.Estimator(model_fn, 'model', params={})
 # estimator.export_saved_model('saved_model', serving_input_receiver_fn)
@@ -98,3 +109,4 @@ from tensorflow.contrib import predictor
 predict_fn = predictor.from_saved_model(latest)
 for nb in my_service():
     pred = predict_fn({'number': [[nb]]})['output']
+    print(pred)
