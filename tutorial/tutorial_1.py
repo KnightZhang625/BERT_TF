@@ -117,21 +117,23 @@ def model_fn(features, labels, mode, params):
     vocab_words = tf.contrib.lookup.index_table_from_file(
         params['words'], num_oov_buckets=params['num_oov_buckets'])
     with codecs.open(params['tags'], 'r', 'utf-8') as file:
-        indices = [idx for idx, tag in enumerate(file) if tag.strip() != '0']
+        indices = [idx for idx, tag in enumerate(file) if tag.strip() != 'O']
         num_tags = len(indices) + 1
     
     # Word Embeddings
     word_ids = vocab_words.lookup(words)
-    embedded = tf.get_variable('embedding', [params['vocab_size', 'embedding_size']], dtype=tf.float32)
+    print(params)
+    embedded = tf.get_variable('embedding', [params['vocab_size'], params['embedding_size']], dtype=tf.float32)
     embeddings = tf.nn.embedding_lookup(embedded, word_ids)
     embeddings = tf.layers.dropout(embeddings, rate=dropout, training=training)
 
     # LSTM
     encoder_cell = tf.nn.rnn_cell.BasicLSTMCell(params['num_units'])
     encoder_outputs, _ = tf.nn.dynamic_rnn(encoder_cell, 
-                                                       embeddings, 
-                                                       sequence_length=nwords, 
-                                                       time_major=False)
+                                           embeddings,
+                                           dtype=tf.float32,
+                                           sequence_length=nwords, 
+                                           time_major=False)
     logits = tf.layers.dense(encoder_outputs, num_tags, name='projection')
     
     outputs = tf.nn.softmax(logits, axis=-1)
@@ -170,3 +172,30 @@ def model_fn(features, labels, mode, params):
             return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
         else:
             raise NotImplementedError('Unknown mode {}'.format(mode))
+
+if __name__ == '__main__':
+    # params
+    params = {
+        'vocab_size': 22,
+        'embedding_size': 10,
+        'dropout': 0.2,
+        'num_oov_buckets': 1,
+        'epochs': 25,
+        'batch_size': 2,
+        'buffer': 100,
+        'num_units': 30,
+        'words': 'data/vocab.words.txt',
+        'tags': 'data/vocab.tags.txt'
+    }
+
+    train_inpf = functools.partial(input_fn, 'data/train.words.txt', 'data/train.tags.txt')
+    eval_inpf = functools.partial(input_fn, 'data/train.words.txt', 'data/train.tags.txt')
+    
+    cfg = tf.estimator.RunConfig(save_checkpoints_secs=120)
+    estimator = tf.estimator.Estimator(model_fn, 'results/model', cfg, params)
+    Path(estimator.eval_dir()).mkdir(parents=True, exist_ok=True)
+    # hook = tf.estimator.experimental.stop_if_no_increase_hook(
+    #     estimator, 'f1', 500, min_steps=80, run_every_secs=120)
+    train_spec = tf.estimator.TrainSpec(input_fn=train_inpf)
+    eval_spec = tf.estimator.EvalSpec(input_fn=eval_inpf)
+    tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
