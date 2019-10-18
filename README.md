@@ -16,6 +16,9 @@ python execute.py --type [train, infer]
 ```
 
 ## Log  
+- 18 Oct  
+>>for tf.estimator, tf.Dataset, write a brief but of complete structure tutorial, see tutorial directory.  
+
 - 14th Oct  
 >>finish UniLM, need to rewrite infer()    
 
