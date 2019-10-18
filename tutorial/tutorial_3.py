@@ -11,32 +11,35 @@ from pathlib import Path
 
 """Setup logging"""
 # excellent way to create directory
-Path('results_3').mkdir(exist_ok=True)
+Path('result').mkdir(exist_ok=True)
 # set the priority of the log level
 tf.compat.v1.logging.set_verbosity(logging.INFO)
 # create two handlers: one that will write the logs to sys.stdout(the tenminal windom),
 # and one to a file(as the FileHandler name implies).
 handlers = [
-    logging.FileHandler('results_3/main.log'),
+    logging.FileHandler('result/main.log'),
     logging.StreamHandler(sys.stdout)
 ]
 logging.getLogger('tensorflow').handlers = handlers
 
 class Model(object):
+    """Toy Model"""
     def __init__(self, x, b):
         self.output = tf.add(tf.layers.dense(x, 1), b)
-    
+
     def get_output(self):
         return self.output
 
 # define the model
 def model_fn(features, labels, mode, params):
     """this is prototype syntax, all parameters are necessary."""
-    if isinstance(features, dict):
+    # Send the data as a dictionary is a better choice
+    if isinstance(features, dict):  
         x = features['x']
         b = features['b']
         labels = features['y']
 
+    # this tests the params parameters
     batch_size = tf.cast(params['batch_size'], tf.float32)
     model = Model(x, b)
     outputs = model.get_output()
@@ -48,12 +51,12 @@ def model_fn(features, labels, mode, params):
         if mode == tf.estimator.ModeKeys.EVAL:
             return tf.estimator.EstimatorSpec(mode, loss=loss)
         elif mode == tf.estimator.ModeKeys.TRAIN:
-            # optimizer = tf.train.AdamOptimizer(learning_rate=0.1)
-            # parameters = tf.trainable_variables()
-            # gradients = tf.gradients(loss, parameters, colocate_gradients_with_ops=True)
-            # clipped_gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-            # train_op = optimizer.apply_gradients(zip(clipped_gradients, parameters))
-            train_op = tf.train.AdamOptimizer(learning_rate=0.1).minimize(loss, global_step=tf.train.get_global_step())
+            optimizer = tf.train.AdamOptimizer(learning_rate=0.1)
+            parameters = tf.trainable_variables()
+            gradients = tf.gradients(loss, parameters, colocate_gradients_with_ops=True)
+            clipped_gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+            train_op = optimizer.apply_gradients(zip(clipped_gradients, parameters), global_step=tf.train.get_global_step())
+            # train_op = tf.train.AdamOptimizer(learning_rate=0.1).minimize(loss, global_step=tf.train.get_global_step())
             return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
         else:
             raise NotImplementedError()
@@ -105,22 +108,24 @@ if __name__ == '__main__':
     #     print(features['y'])
     #     input()
 
+    # this is for training
     # input_fn = functools.partial(train_input_fn, xs=xs, bs=bs, ys=ys)
-    # estimator = tf.estimator.Estimator(model_fn, 'model_3_1', params={'batch_size':1})
-    # estimator.train(input_fn)
+    # estimator = tf.estimator.Estimator(model_fn, 'model', params={'batch_size':2})
+    # estimator.train(input_fn, steps=1000)
 
 
-    # estimator = tf.estimator.Estimator(model_fn, 'model_3_1', params={'batch_size':2})
-    # estimator.export_saved_model('saved_model_3_1', serving_input_receiver_fn)
+    # # load the model and export it to the pb format
+    # estimator = tf.estimator.Estimator(model_fn, 'model', params={'batch_size':2})
+    # estimator.export_saved_model('saved_model', serving_input_receiver_fn)
 
-    export_dir = 'saved_model_3_1'
+    # for user input
+    export_dir = 'saved_model'
     subdirs = [x for x in Path(export_dir).iterdir()
             if x.is_dir() and 'temp' not in str(x)]
     latest = str(sorted(subdirs)[-1])
 
     from tensorflow.contrib import predictor
     predict_fn = predictor.from_saved_model(latest)
-    # for nb in my_service():
     i_x = np.array([[2, 3]], dtype=np.float)
     i_b = np.array([0.1], dtype=np.float)
     pred = predict_fn({'x': i_x, 'b': i_b})['output']
