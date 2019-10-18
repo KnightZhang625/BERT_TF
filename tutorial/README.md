@@ -1,6 +1,9 @@
 # Tutorial  
 this tutorial will cover the tf.estimator and tf.Dataset, because recently the projects relevant to the BERT use this advanced-packaging api.  
 
+## Details  
+tutorial_3.py is an excellent and full tutorial.  
+
 <!-- ## Requirements  
 - python 3  
 - tensorflow == 1.14 
