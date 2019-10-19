@@ -70,3 +70,47 @@ def assert_rank(tensor, expected_rank, name=None):
             'For the tensor {} in scope {}, the tensor rank {%d} \
             (shape = {}) is not equal to the expected_rank {}'.format(
             name, scope_name, tensor_rank, str(tensor.shape), str(expected_rank)))
+
+def create_initializer(initializer_range=0.02):
+    return tf.truncated_normal_initializer(stddev=initializer_range)
+
+def embedding_lookup_factorized(input_ids,
+                                vocab_size,
+                                hidden_size,
+                                embedding_size,
+                                use_one_hot_embedding,
+                                initializer_range=0.02,
+                                word_embedding_name='albert_word_embeddings'):
+    """create albert embeddings, which reduce the number of the prameters, V -> E, E -> H, where E < H.
+
+    Args:
+        input_ids: int32 Tensor of shape [batch_size, seq_length].
+        vocab_size: int. Size of the vocabulary.
+        embedding_size: int. Dimension for the word embeddings.
+        initializer_type: float.
+        word_embedding_name: string.
+        use_one_hot_embeddings: bool.
+    """
+    # create word embeddings
+    embedding_table = tf.get_variable(name=word_embedding_name, 
+                                        shape=[vocab_size, embedding_size], 
+                                        initializer=_mh.create_initializer(initializer_range))
+    
+    # calculate word embeddings
+    # the embeddings shape is [batch_size, seq_length, embedding_size]
+    if use_one_hot_embedding:
+        # [batch_size, seq_length] -> [batch_size, seq_length, vocab_size]
+        one_hot_input_ids = tf.one_hot(input_ids, depth=vocab_size)
+        # [batch_size, seq_length, embedding_size]
+        embeddings = tf.matmul(one_hot_input_ids, embedding_table)
+    else:
+        embeddings = tf.nn.embedding_lookup(embedding_table, input_ids)
+    
+    # project embedding dimension to the hidden size
+    project_variable = tf.get_variable(name='projection_embeddings',
+                                       shape=[embedding_size, hidden_size],
+                                       initializer=create_initializer(initializer_range))
+    # [batch_size, seq_length, embedding_size] -> [batch_size, seq_length, hidden_size]
+    output = tf.matmul(embeddings, project_variable)
+
+    return output, embedding_table, project_variable

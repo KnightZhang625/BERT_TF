@@ -63,4 +63,25 @@ class BertModel(object):
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
 
+        input_shape = _mh.get_shape_list(input_ids, expected_rank=2)
+        batch_size = input_shape[0]
+        seq_length = input_shape[1]
 
+        if input_mask is None:
+            # each word is the real word, no padding.
+            input_shape = tf.ones(shape=[batch_size, seq_length], dtype=tf.int32)
+
+        if token_type_ids is None:
+            token_type_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
+        
+        with tf.variable_scope(scope, default_name='albert'):
+            with tf.variable_scope('embeddings'):
+                # 1. obtain embeddings
+                self.embedding_output, self.embedding_table, self.projection_table = _mh.embedding_lookup_factorized(
+                    input_ids=input_ids,
+                    vocab_size=config.vocab_size,
+                    hidden_size=config.hidden_size,
+                    embedding_size=config.embedding_size,
+                    use_one_hot_embedding=use_one_hot_embedding,
+                    initializer_range=config.initializer_range,
+                    word_embedding_name='word_embeddings')
