@@ -13,7 +13,7 @@ from hparams_config import config as config_
 from log import log_info as _info
 from log import log_error as _error
 
-PROJECT_PATH = str(Path(__file__).absolute().parent)
+PROJECT_PATH = str(Path(__file__).absolute().parent
 
 def train(config):
     # build the training graph
