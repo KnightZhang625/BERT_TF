@@ -76,6 +76,7 @@ class BertModel(object):
             token_type_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
         
         with tf.variable_scope(scope, default_name='albert'):
+            # Embedding
             with tf.variable_scope('embeddings'):
                 # 1. obtain embeddings
                 self.embedding_output, self.embedding_table, self.projection_table = _mh.embedding_lookup_factorized(
@@ -101,3 +102,7 @@ class BertModel(object):
                     initializer_range=config.initializer_range,
                     max_positional_embeddings=config.max_positional_embeddings,
                     dropout_prob=config.hidden_dropout_prob)
+
+            # Encoder
+            with tf.variable_scope('encoder'):
+                attention_mask = _mh.create_attention_mask_from_input_mask(input_ids, input_mask)

@@ -205,3 +205,41 @@ def embedding_postprocessor(input_tensor,
     
     output = layer_norm_and_dropout(output, dropout_prob)
     return output
+
+"""FOR MASK"""
+def create_attention_mask_from_input_mask(input_ids, input_mask):
+    """create attention mask.
+    
+    Args:
+        input_ids: int32 Tensor of shape [batch_size, seq_length].
+        input_mask: int32 Tensor of shape [batch_size, seq_length].
+    
+    Returns:
+        float Tensor of shape [batch_size, seq_length, seq_length].
+    """
+
+    input_ids_shape = get_shape_list(input_ids, expected_rank=[2, 3])
+    batch_size, input_length = input_ids_shape[0], input_ids_shape[1]
+
+    input_mask_shape = get_shape_list(input_mask, expected_rank=2)
+    mask_length = input_mask_shape[1]
+
+    # initial_mask: [b, s, 1]       input_mask: [b, 1, s]
+    #       1    1    1                 
+    #       1    1    1                 b1: 1 1 0 1 1
+    #   b1: 1 b2:1 b3:1                 b2: 1 1 0 1 0
+    #       1    1    1                 b3: 1 1 1 0 1
+    #       1    1    1   
+    #                       1 1 0 1 1     1 1 0 1 0     1 1 1 0 1
+    #                       1 1 0 1 1     1 1 0 1 0     1 1 1 0 1
+    # mask: [b, s, s]-> b1: 1 1 0 1 1  b2:1 1 0 1 0  b3:1 1 1 0 1 
+    #                       1 1 0 1 1     1 1 0 1 0     1 1 1 0 1
+    #                       1 1 0 1 1     1 1 0 1 0     1 1 1 0 1
+    #
+
+    input_mask = tf.cast(
+        tf.reshape(input_mask, [batch_size, 1, mask_length]), dtype=tf.float32)
+    initial_input = tf.ones([batch_size, input_length, 1], dtype=tf.float32)
+    
+    mask = initial_input * input_mask
+    return mask
