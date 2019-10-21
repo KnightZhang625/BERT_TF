@@ -43,6 +43,7 @@ class BertModel(object):
                  input_ids, 
                  input_mask=None, 
                  token_type_ids=None, 
+                 pre_positional_embeddings=None,
                  use_one_hot_embeddings=False, 
                  scope=None):
         """"Constructor for ALBert.
@@ -85,3 +86,18 @@ class BertModel(object):
                     use_one_hot_embedding=use_one_hot_embeddings,
                     initializer_range=config.initializer_range,
                     word_embedding_name='word_embeddings')
+
+                # 2. add positional embeddings
+                self.embedding_output = _mh.embedding_postprocessor(
+                    input_tensor=self.embedding_output,
+                    use_token_type=True,
+                    token_type_ids=token_type_ids,
+                    token_type_vocab_size=config.token_type_vocab_size,
+                    token_type_embedding_name='token_type_embeddings',
+                    use_positional_embeddings=True,
+                    positional_embedding_type=config.pre_positional_embedding_tyoe,
+                    pre_positional_embeddings=pre_positional_embeddings,
+                    positional_embedding_name='positional_embeddings',
+                    initializer_range=config.initializer_range,
+                    max_positional_embeddings=config.max_positional_embeddings,
+                    dropout_prob=config.hidden_dropout_prob)

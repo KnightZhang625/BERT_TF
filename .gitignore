@@ -104,3 +104,6 @@ venv.bak/
 .mypy_cache/
 
 models/
+tutorial/model/
+tutorial/result/
+tutorial/saved_model/
