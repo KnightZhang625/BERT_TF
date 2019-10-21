@@ -82,6 +82,6 @@ class BertModel(object):
                     vocab_size=config.vocab_size,
                     hidden_size=config.hidden_size,
                     embedding_size=config.embedding_size,
-                    use_one_hot_embedding=use_one_hot_embedding,
+                    use_one_hot_embedding=use_one_hot_embeddings,
                     initializer_range=config.initializer_range,
                     word_embedding_name='word_embeddings')
