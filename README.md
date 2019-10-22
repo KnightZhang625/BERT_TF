@@ -16,26 +16,30 @@ python execute.py --type [train, infer]
 ```
 
 ## Log  
+- 22 Oct  
+>>Move the previous version, which use tf.placeholder to receive the data, to the desperated directory.  
+>>New model use tf.estimator, tf.Dataset, and could reload the pre-train Bert model easily.  
+>>Finish Writing the BERT Model, and ALBERT.
+
 - 18 Oct  
 >>for tf.estimator, tf.Dataset, write a brief but of complete structure tutorial, see tutorial directory.  
 
 - 14th Oct  
->>finish UniLM, need to rewrite infer()    
+>>~~finish UniLM, need to rewrite infer()~~     
 
 - 25th Sep  
->>decide to implement UNI-LM  
+>>~~decide to implement UNI-LM~~  
 
 - 19th Sep  
->>finish fully train procedure.  
+>>~~finish fully train procedure.~~    
 
 - 18th Sep  
->>finish pre-train Bert, write train example.    
+>>~~finish pre-train Bert, write train example.~~   
 
->>TODO: <1>data utils; ~~<2>fully train procedure;~~ <3>fine tune tasks;  
+>>~~TODO: <1>data utils; ~~<2>fully train procedure;~~ <3>fine tune tasks;~~   
 
 ## Reference  
 
 - TensorFlow code and pre-trained models for BERT https://arxiv.org/abs/1810.04805  
 - https://github.com/google-research/bert  
-
-
+- <<\ALBERT: A LITE BERT FOR SELF-SUPERVISED LEARNING OF LANGUAGE REPRESENTATIONS>> https://arxiv.org/pdf/1909.11942.pdf
