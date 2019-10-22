@@ -23,6 +23,7 @@ import copy
 import tensorflow as tf
 # tf.enable_eager_execution()
 import model_helper as _mh
+from transformer import tranformer_model
 
 from pathlib import Path
 PROJECT_PATH = Path(__file__).absolute().parent
@@ -106,10 +107,28 @@ class BertModel(object):
             with tf.variable_scope('encoder'):
                 # obtain the mask
                 attention_mask = _mh.create_attention_mask_from_input_mask(input_ids, input_mask)
+                
+                self.all_encoder_layers = tranformer_model(input_tensor=self.embedding_output,
+                                                           attention_mask=attention_mask,
+                                                           hidden_size=config.hidden_size,
+                                                           num_hidden_layers=config.num_hidden_layers,
+                                                           num_attention_heads=config.num_attention_heads,
+                                                           intermediate_size=config.intermediate_size,
+                                                           intermediate_act_fn=_mh.gelu,
+                                                           hidden_dropout_prob=config.hidden_dropout_prob,
+                                                           attention_probs_dropout_prob=config.attention_probs_dropout_prob,
+                                                           initializer_range=config.initializer_range,
+                                                           do_return_all_layers=True,
+                                                           share_parameter_across_layers=True)
+                
+            self.sequence_output = self.all_encoder_layers[-1]
             
-                # transformer
-                # TODO transformer_model
-
-
-
-
+            # for classification task
+            with tf.variable_scope('pooler'):
+                # [batch_size, seq_length, hidden_size] -> [batch_size, hidden_size]
+                first_token_tensor = tf.squeeze(self.sequence_output[:, 0:1, :], axis=1)
+                self.pooled_output = tf.layers.dense(
+                    first_token_tensor,
+                    config.hidden_size,
+                    activation=tf.tanh,
+                    kernel_initializer=_mh.create_initializer(initializer_range))
