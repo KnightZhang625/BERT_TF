@@ -72,4 +72,91 @@ def tranformer_model(input_tensor,
     batch_size = input_shape[0]
     seq_length = input_shape[1]
     input_width = input_shape[2]
+
+    # residual layer need to perform on the outputs from all layers,
+    # so the hidden size, i.e. the outputs from the transformer blocks
+    # should be the same as the input_width, at the beginning, it is input tensor,
+    # diffetentiate hidden_size from the intermediate_size,
+    # intermediate layer is before the hidden layer.
+    if input_width != hidden_size:
+        _error('The width of the input tensor {} not not equal to the hidden size {}'.format(input_width, hidden_size))
+        raise ValueError
+
+    # create a list to save the output from each transformer layer]
+    prev_output = input_tensor      # [batch_size, seq_length, width]
+    all_layer_outputs = []
+    for layer_idx in range(num_hidden_layers):
+        if share_parameter_across_layers:
+            name_variable_scope = 'layer_shared'
+        else:
+            name_variable_scope = 'layer_{}'.format*layer_idx
+        
+        # share the parameter across layers when share_parameter_across_layers us True and not the first layer
+        with tf.variable_scope(name_variable_scope, reuse=True if (share_parameter_across_layers and layer_idx > 0) else False):
+            layer_input = prev_output
+            with tf.variable_scope('attention'):
+                attention_heads = []
+                with tf.variable_scope('self'):
+                    # TODO self-attention
+                    pass
+
+def self_attention_layer(from_tensor,
+                         to_tensor,
+                         attention_mask=None,
+                         num_attention_heads=1,
+                         size_per_head=512,
+                         query_act=None,
+                         key_act=None,
+                         value_act=None,
+                         attention_probs_dropout_prob=0.0,
+                         initializer_range=0.02,
+                         batch_size=None,
+                         from_seq_length=None,
+                         to_seq_length=None):
+    """Perform self-attention.
     
+    Args:
+        from_tensor: float Tensor of shape [batch_size, seq_length, width].
+        to_tensor: float Tensor of shape [batch_size, seq_length, width].
+        attention_mask: (optional) int32 Tensor of shape [batch_size, seq_length, seq_length],
+            where 1 indicates the position can be attended and 0 indicates the position cannot be attended.
+        num_attention_heads: int. Number of attention heads in the Transformer.
+        size_per_head: int. Size of each attention head.
+        query_act: (optional) Activation function for the query transformer.
+        key_act: (optional) Activation function for the key transformer.
+        value_act: (optional) Activation function for the value transformer.
+        attention_probs_dropout_prob: (optional) float.
+        initializer_range: float.
+        batch_size: (optional) int.
+        from_seq_length: (optional) int.
+        to_seq_length: (optional) int.
+    
+    Returns:
+        float Tensor of shape [batch_size, from_seq_length, width].
+    """
+    # check the rank
+    from_shape = _mh.get_shape_list(from_tensor, expected_rank=3)
+    to_shape = _mh.get_shape_list(to_tensor, expected_rank=3)
+
+    if len(from_shape) != len(to_shape) != 3:
+        _error('The rank of `from_tensor` should match the rank of `to_tensor`, and should be 3')
+        raise ValueError
+
+    # calculate the query, key, value
+    # from_tensor: [batch_size, seq_length, width] -> query_layer: [batch_size, seq_length, num_attention_heads * size_per_head]
+    # num_attention_heads * size_per_head == hidden_size == width
+    query_layer = tf.layers.dense(from_tensor, 
+                                  num_attention_heads * size_per_head,
+                                  activation=query_act,
+                                  name='query',
+                                  kernel_initializer=_mh.create_initializer(initializer_range))
+    key_layer = tf.layers.dense(to_tensor,
+                                num_attention_heads * size_per_head,
+                                activation=key_act,
+                                name='key',
+                                kernel_regularizer=_mh.create_initializer(initializer_range))
+    value_layer = tf.layers.dense(to_tensor,
+                                  num_attention_heads * size_per_head,
+                                  activation=value_act,
+                                  name='value',
+                                  kernel_regularizer=_mh.create_initializer(initializer_range))
