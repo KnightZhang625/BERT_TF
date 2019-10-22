@@ -19,6 +19,7 @@
 
 import os
 import sys
+import math
 import tensorflow as tf
 import model_helper as _mh
 
@@ -97,8 +98,48 @@ def tranformer_model(input_tensor,
             with tf.variable_scope('attention'):
                 attention_heads = []
                 with tf.variable_scope('self'):
-                    # TODO self-attention
-                    pass
+                    attention_head = self_attention_layer(from_tensor=layer_input,
+                                                          to_tensor=layer_input,
+                                                          attention_mask=attention_mask,
+                                                          num_attention_heads=num_attention_heads,
+                                                          size_per_head=attention_head_size,
+                                                          attention_probs_dropout_prob=attention_probs_dropout_prob,
+                                                          initializer_range=initializer_range,
+                                                          batch_size=batch_size,
+                                                          from_seq_length=seq_length,
+                                                          to_seq_length=seq_length)
+                    attention_output = attention_head
+                    # perform residual layer to finish the self-attention block
+                    with tf.variable_scope('output'):
+                        attention_output = tf.layers.dense(
+                            attention_output,
+                            hidden_size,
+                            kernel_initializer=_mh.create_initializer(initializer_range))
+                        attention_output = _mh.dropout(attention_output, hidden_dropout_prob)
+                        attention_output = _mh.layer_norm(attention_output + layer_input)
+
+            # do double linear projection to enhance the context representation
+            with tf.variable_scope('intermediate'):
+                intermediate_output = tf.layers.dense(
+                    attention_output,
+                    intermediate_size,
+                    activation=intermediate_act_fn,
+                    kernel_initializer=_mh.create_initializer(initializer_range))
+            
+            with tf.variable_scope('output'):
+                layer_output = tf.layers.dense(
+                    intermediate_output,
+                    hidden_size,
+                    kernel_initializer=_mh.create_initializer(initializer_range))
+                layer_output = _mh.dropout(layer_output, hidden_dropout_prob)
+                layer_output = _mh.layer_norm(layer_output + attention_output)
+                prev_output = layer_output
+                all_layer_outputs.append(layer_output)
+    
+    if do_return_all_layers:
+        return all_layer_outputs
+    else:
+        return all_layer_outputs[-1]
 
 def self_attention_layer(from_tensor,
                          to_tensor,
@@ -134,6 +175,21 @@ def self_attention_layer(from_tensor,
     Returns:
         float Tensor of shape [batch_size, from_seq_length, width].
     """
+
+    def transpose_for_scores(input_tensor, batch_size, num_attention_heads,
+                             seq_length, size_per_head):
+        """Change the order of axes. witdh = num_attention_heads * size_per_head.
+        
+        Args:
+            input_tensor: float Tensor of shape [batch_size, seq_length, width].
+
+        Returns:
+            float Tensor of shape [batch_size, num_attention_heads, seq_length, size_per_head].
+        """
+        output_tensor = tf.reshape(input_tensor, [batch_size, seq_length, num_attention_heads, size_per_head])
+        output_tensor = tf.transpose(output_tensor, [0, 2, 1, 3])
+        return output_tensor
+
     # check the rank
     from_shape = _mh.get_shape_list(from_tensor, expected_rank=3)
     to_shape = _mh.get_shape_list(to_tensor, expected_rank=3)
@@ -160,3 +216,38 @@ def self_attention_layer(from_tensor,
                                   activation=value_act,
                                   name='value',
                                   kernel_regularizer=_mh.create_initializer(initializer_range))
+    
+    # [batch_size, seq_length, width] -> [batch_size, num_attention_heads, seq_length, size_per_head]
+    query_layer = transpose_for_scores(query_layer, batch_size,
+                                       num_attention_heads, from_seq_length,
+                                       size_per_head)
+    key_layer = transpose_for_scores(key_layer, batch_size,
+                                     num_attention_heads, to_seq_length,
+                                     size_per_head)
+    
+    # calculate the attention scores
+    # [batch_size, num_attention_heads, from_seq_length, to_seq_length]
+    attention_scores = tf.matmul(query_layer, key_layer, transpose_b=True)
+    attention_scores = tf.multiply(attention_scores, 1.0 / math.sqrt(float(size_per_head)))
+
+    if attention_mask is not None:
+        # [batch_size, seq_length, seq_length] -> [batch_size, 1, seq_length, seq_length]
+        attention_mask = tf.expand_dims(attention_mask, axis=1)
+        adder = (1.0 - tf.cast(attention_mask, dtype=tf.float32)) * -10000.0
+        attention_scores += adder
+    
+    attention_probs = tf.nn.softmax(attention_scores)
+    attention_probs = _mh.dropout(attention_probs, attention_probs_dropout_prob)
+
+    # calculate the context layer
+    # [batch_size, num_attention_heads, to_seq_length, size_per_head]
+    value_layer = transpose_for_scores(value_layer, batch_size,
+                                       num_attention_heads, to_seq_length,
+                                       size_per_head)
+    context_layer = tf.matmul(attention_scores, value_layer)
+    # [batch_size, from_seq_length, num_attention_heads, size_per_head]
+    context_layer = tf.transpose(context_layer, [0, 2, 1, 3])
+    # [batch_size, from_seq_length, width]
+    context_layer = tf.reshape(context_layer, [batch_size, from_seq_length, num_attention_heads * size_per_head])
+
+    return context_layer
