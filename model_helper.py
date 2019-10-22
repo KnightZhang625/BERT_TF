@@ -2,6 +2,7 @@
 
 import sys
 import six
+import numpy as np
 import tensorflow as tf
 
 from pathlib import Path
@@ -97,6 +98,12 @@ def layer_norm_and_dropout(input_tensor, dropout_prob, name=None):
     output_tensor = layer_norm(input_tensor, name)
     output_tensor = dropout(input_tensor, dropout_prob)
     return output_tensor
+
+def gelu(x):
+    """Gaussian Error Linear Unit."""
+    cdf = 0.5 * (1.0 + tf.tanh(
+        (np.sqrt(2 / np.pi) * (x + 0.044715 * tf.pow(x, 3)))))
+    return x * cdf
 
 """FOR EMBEDDING"""
 def embedding_lookup_factorized(input_ids,

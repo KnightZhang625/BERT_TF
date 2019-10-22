@@ -20,6 +20,8 @@
 import os
 import sys
 import copy
+import tensorflow as tf
+# tf.enable_eager_execution()
 import model_helper as _mh
 
 from pathlib import Path
@@ -31,9 +33,6 @@ setup = Setup()
 
 from utils.log import log_info as _info
 from utils.log import log_error as _error
-
-import tensorflow as tf
-# tf.enable_eager_execution()
 
 class BertModel(object):
     """A Lite Bert Model"""
@@ -105,4 +104,12 @@ class BertModel(object):
 
             # Encoder
             with tf.variable_scope('encoder'):
+                # obtain the mask
                 attention_mask = _mh.create_attention_mask_from_input_mask(input_ids, input_mask)
+            
+                # transformer
+                # TODO transformer_model
+
+
+
+
