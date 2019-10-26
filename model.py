@@ -128,4 +128,7 @@ class BertModel(object):
                     first_token_tensor,
                     config.hidden_size,
                     activation=tf.tanh,
-                    kernel_initializer=_mh.create_initializer(initializer_range))
+                    kernel_initializer=_mh.create_initializer(config.initializer_range))
+
+    def get_sequence_output(self):
+        return self.sequence_output

@@ -126,7 +126,7 @@ def embedding_lookup_factorized(input_ids,
     # create word embeddings
     embedding_table = tf.get_variable(name=word_embedding_name, 
                                         shape=[vocab_size, embedding_size], 
-                                        initializer=_mh.create_initializer(initializer_range))
+                                        initializer=create_initializer(initializer_range))
     
     # calculate word embeddings
     # the embeddings shape is [batch_size, seq_length, embedding_size]

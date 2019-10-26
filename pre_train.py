@@ -31,6 +31,7 @@ from utils.setup import Setup
 setup = Setup()
 
 from model import BertModel
+from model_helper import *
 from utils.log import log_info as _info
 from utils.log import log_error as _error
 
@@ -59,3 +60,73 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         masked_lm_ids = features['masked_lm_ids']               # [batch_size, answer_seq_length], specify the answer labels
         masked_lm_weights = features['maked_lm_weights']        # [batch_size, seq_length], [1, 1, 0], 0 refers to the mask
         # next_sentence_labels = features['next_sentence_labels']
+
+        is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+
+        model = BertModel(
+            config=bert_config,
+            is_training=is_training,
+            input_ids=input_ids,
+            input_mask=input_mask)
+        
+def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_table, positions, 
+                         label_ids, label_weights):
+    # [all_predicted_length, width], 
+    # all_predicted indicated squeezing all the predicted batch in one dimension.
+    predicted_tensor = gather_indexes(input_tensor, positions)
+
+    with tf.variable_scope('seq2seq/predictions'):
+        with tf.variable_scope('transform'):
+            input_tensor = tf.layers.dense(
+                input_tensor,
+                uints=bert_config.hidden_size,
+                activation=gelu,
+                kernel_initializer=create_initializer(bert_config.initializer_range))
+        input_tensor = layer_norm(input_tensor)
+
+        output_bias = tf.get_variable(
+            'output_bias',
+            shape=[bert_config.vocab_size],
+            initializer=tf.zeros_initializer())
+        input_project = tf.matmul(input_tensor, projection_table, transpose_b=True)
+        logits = tf.matmul(input_tensor, embedding_table, transpose_b=True)
+        logits = tf.nn.bias_add(logits, output_bias)
+        log_probs = tf.nn.log_softmax(logits, axis=-1)
+
+        label_ids = tf.reshape(label_ids, [-1])
+        label_weights = tf.reshape(label_ids, [-1])
+
+        one_hot_labels = tf.one_hot(label_ids, depth=bert_config.vocab_size)
+        per_loss = - tf.reduce_sum(log_probs * one_hot_labels, axis=-1)
+        numerator = tf.reduce_sum(label_weights * per_loss)
+        denominator = tf.reduce_sum(label_weights) + 1e-5
+        loss = numerator / denominator
+    
+    return loss, per_loss, log_probs
+
+def gather_indexes(input_tensor, positions):
+    """Gather all the predicted tensor, input_tensor contains all the positions,
+        however, only maksed positions are used for calculating the loss.
+    
+    Args:
+        input_tensor: float Tensor of shape [batch_size, seq_length, width].
+        positions: save the relative positions of each sentence's labels.
+    
+    Returns:
+        output_tensor: [some_length, width], where some_length refers to all the predicted labels
+            in the data batch.
+        """
+    input_shape = get_shape_list(input_tensor, expected_rank=3)
+    batch_size = input_shape[0]
+    seq_length = input_shape[1]
+    width = input_shape[2]
+
+    # 
+    flat_offsets = tf.reshape(
+        tf.range(0, batch_size, dtype=tf.int32) * seq_length, [-1, 1])
+    flat_postions = tf.reshape(positions + flat_offsets, [-1])
+    flat_input_tensor = tf.reshape(input_tensor,
+                                    [batch_size * seq_length, width])
+    output_tensor = tf.gather(flat_input_tensor, flat_postions)
+    
+    return output_tensor
