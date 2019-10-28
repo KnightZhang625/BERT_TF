@@ -61,14 +61,63 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         masked_lm_weights = features['maked_lm_weights']        # [batch_size, seq_length], [1, 1, 0], 0 refers to the mask
         # next_sentence_labels = features['next_sentence_labels']
 
+        # build model
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
-
         model = BertModel(
             config=bert_config,
             is_training=is_training,
             input_ids=input_ids,
             input_mask=input_mask)
+
+        # compute loss
+        loss, pre_loss, log_probs = get_masked_lm_output(bert_config,
+                                                         model.get_sequence_output(),
+                                                         model.embedding_table,
+                                                         model.projection_table,
+                                                         masked_lm_positions,
+                                                         masked_lm_ids,
+                                                         masked_lm_weights)
         
+        # restore from the checkpoint,
+        # tf.estimator automatically restore from the model typically,
+        # maybe here is for restore some pre-trained parameters
+        tvars = tf.trainable_variables()
+        initialized_variable_names = {}
+        if init_checkpoint:
+            (assignment_map, initialized_variable_names) = get_assignment_map_from_checkpoint(tvars, init_checkpoint)
+            tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+
+        _info('*** Trainable Variables ***')
+        for var in tvars:
+            init_string = ''
+            if var.name in initialized_variable_names:
+                init_string = ', *INIT_FROM_CKPT*'
+            _info('name = {}, shape={}{}'.format(var.name, var.shape, init_string))
+        
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            learning_rate = tf.train.polynomial_decay(bert_config.learning_rate,
+                                                      tf.train.get_or_create_global_step(),
+                                                      num_train_steps,
+                                                      end_learning_rate=0.0,
+                                                      power=1.0,
+                                                      cycle=False)
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+            gradients = tf.gradients(loss, tvars, colocate_gradients_with_ops=True)
+            clipped_gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+            train_op = optimizer.apply_gradients(zip(clipped_gradients, tvars), global_step=tf.train.get_global_step())
+            output_spec = tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+        elif mode == tf.estimator.ModeKeys.EVAL:
+            # TODO define the metrics
+            _error('to do ...')
+            raise NotImplementedError
+        elif mode == tf.estimator.ModeKeys.PREDICT:
+            masked_lm_predictions = tf.argmax(log_probs, axis=-1, output_type=tf.int32)
+            output_spec = tf.estimator.EstimatorSpec(mode, predictions=masked_lm_predictions)
+
+        return output_spec
+    
+    return model_fn
+
 def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_table, positions, 
                          label_ids, label_weights):
     """Get the loss for the answer according to the mask.
@@ -76,6 +125,16 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
     Args:
         bert_config: config for bert.
         input_tensor: float Tensor of shape [batch_size, seq_length, witdh].
+        embedding_table: [vocab_size, embedding_size].
+        projection_table: [embedding_size, hidden_size].
+        positions: tf.int32, which saves the positions for answers.
+        label_ids: tf.int32, which is the true labels.
+        label_weights: tf.int32, which is refers to the padding.
+    
+    Returns:
+        loss: average word loss.
+        per_loss: per word loss.
+        log_probs: log probability.
     """
     predicted_tensor = gather_indexes(input_tensor, positions)
 
@@ -95,14 +154,21 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
         input_project = tf.matmul(input_tensor, projection_table, transpose_b=True)
         logits = tf.matmul(input_project, embedding_table, transpose_b=True)
         logits = tf.nn.bias_add(logits, output_bias)
+        # [some_length, vocab_size]
         log_probs = tf.nn.log_softmax(logits, axis=-1)
 
-        label_ids = tf.reshape(label_ids, [-1])
+        # [some_length]
+        label_ids = tf.cast(tf.reshape(label_ids, [-1]), dtypt=tf.float32)
+        # [some_length]
         label_weights = tf.reshape(label_ids, [-1])
 
+        # [some_length, vocab_size]
         one_hot_labels = tf.one_hot(label_ids, depth=bert_config.vocab_size)
+        # [some_length, 1]
         per_loss = - tf.reduce_sum(log_probs * one_hot_labels, axis=-1)
+        # ignore padding
         numerator = tf.reduce_sum(label_weights * per_loss)
+        # the number of predicted items
         denominator = tf.reduce_sum(label_weights) + 1e-5
         loss = numerator / denominator
     
