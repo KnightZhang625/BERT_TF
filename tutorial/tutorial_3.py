@@ -31,7 +31,7 @@ class Model(object):
         return self.output
 
 # define the model
-def model_fn(features, labels, mode, params):
+def model_fn(features, , mode, params):
     """this is prototype syntax, all parameters are necessary."""
     # Send the data as a dictionary is a better choice
     if isinstance(features, dict):  

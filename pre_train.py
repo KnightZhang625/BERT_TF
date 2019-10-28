@@ -20,6 +20,7 @@
 """"Run masked LM/next sentence masked_lm pre-training for ALBERT."""
 
 import sys
+import functools
 import tensorflow as tf
 # tf.enable_eager_execution()
 
@@ -33,6 +34,7 @@ setup = Setup()
 from model import BertModel
 from model_helper import *
 from config import bert_config
+from load_data import train_input_fn
 from utils.log import log_info as _info
 from utils.log import log_error as _error
 
@@ -40,7 +42,7 @@ flags = tf.flags
 FLAGS = flags.FLAGS
 
 # Prototype for tf.estimator
-def model_fn_builder(bert_config, init_checkpoint, learning_rate):
+def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_steps):
     """Returns 'model_fn' closure for Estomator,
        use closure is because of building the model requires
        some paramters, sending them into the 'params' is not a good deal."""
@@ -159,7 +161,7 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
         # [some_length]
         label_ids = tf.cast(tf.reshape(label_ids, [-1]), dtypt=tf.float32)
         # [some_length]
-        label_weights = tf.reshape(label_ids, [-1])
+        label_weights = tf.cast(tf.reshape(label_ids, [-1]), dtype=tf.float32)
 
         # [some_length, vocab_size]
         one_hot_labels = tf.one_hot(label_ids, depth=bert_config.vocab_size)
@@ -208,7 +210,13 @@ def main():
     model_fn = model_fn_builder(
         bert_config=bert_config,
         init_checkpoint=FLAGS.init_checkpoint,
-        learning_rate=bert_config.learning_rate)
+        learning_rate=bert_config.learning_rate,
+        num_train_steps=FLAGS.num_train_steps)
     
-    estimator = tf.estimator.Estimator(model_fn, 'model')
-    estimator.train(input_fn, steps=FLAGS.steps)
+    input_fn = functools.partial(train_input_fn, 
+                                 path=bert_config.data_path,
+                                 batch_size=FLAGS.batch_size,
+                                 repeat_num=FLAGS.repeat_num)
+
+    estimator = tf.estimator.Estimator(model_fn, 'models')
+    estimator.train(input_fn, steps=FLAGS.num_train_steps)

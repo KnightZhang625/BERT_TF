@@ -17,4 +17,7 @@ class BertConfig(object):
         # initializer
         self.initializer_range = 0.01
 
+        # global
+        self.data_path = 'data/train.data'
+
 bert_config = BertConfig()
