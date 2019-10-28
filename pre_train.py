@@ -32,6 +32,7 @@ setup = Setup()
 
 from model import BertModel
 from model_helper import *
+from config import bert_config
 from utils.log import log_info as _info
 from utils.log import log_error as _error
 
@@ -39,9 +40,7 @@ flags = tf.flags
 FLAGS = flags.FLAGS
 
 # Prototype for tf.estimator
-def model_fn_builder(bert_config, init_checkpoint, learning_rate,
-                     num_train_steps, num_warmup_steps, 
-                     use_one_hot_embeddings):
+def model_fn_builder(bert_config, init_checkpoint, learning_rate):
     """Returns 'model_fn' closure for Estomator,
        use closure is because of building the model requires
        some paramters, sending them into the 'params' is not a good deal."""
@@ -202,3 +201,14 @@ def gather_indexes(input_tensor, positions):
     output_tensor = tf.gather(flat_input_tensor, flat_postions)
     
     return output_tensor
+
+def main():
+    tf.gfile.MakeDirs(FLAGS.output_dir)
+
+    model_fn = model_fn_builder(
+        bert_config=bert_config,
+        init_checkpoint=FLAGS.init_checkpoint,
+        learning_rate=bert_config.learning_rate)
+    
+    estimator = tf.estimator.Estimator(model_fn, 'model')
+    estimator.train(input_fn, steps=FLAGS.steps)
