@@ -48,5 +48,5 @@ python pre_train.py
 
 - TensorFlow code and pre-trained models for BERT https://arxiv.org/abs/1810.04805  
 - https://github.com/google-research/bert  
-- <<ALBERT: A LITE BERT FOR SELF-SUPERVISED LEARNING OF LANGUAGE REPRESENTATIONS>> https://arxiv.org/pdf/1909.11942.pdf
+- <<ALBERT: A LITE BERT FOR SELF-SUPERVISED LEARNING OF LANGUAGE REPRESENTATIONS>> https://arxiv.org/pdf/1909.11942.pdf  
 - <<Unified Language Model Pre-training for Natural Language Understanding and Generation>> https://arxiv.org/pdf/1905.03197.pdf
