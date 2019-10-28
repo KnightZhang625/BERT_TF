@@ -12,10 +12,16 @@ This package will be the foundation on which our platform would be based on, it 
 
 ## Run example  
 ```shell
-python execute.py --type [train, infer]
+python main.py
 ```
 
 ## Log  
+- 28 Oct  
+>Finish train UniLM with Albert.  
+>>Data Format:  
+>> each line as type of 'question=answer' separated by '\n' in a file.  
+>> revise config.py to specify the data folder and the directory to save the model.  
+
 - 22 Oct  
 >>Move the previous version, which use tf.placeholder to receive the data, to the desperated directory.  
 >>New model use tf.estimator, tf.Dataset, and could reload the pre-train Bert model easily.  
