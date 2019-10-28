@@ -71,14 +71,18 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         
 def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_table, positions, 
                          label_ids, label_weights):
-    # [all_predicted_length, width], 
-    # all_predicted indicated squeezing all the predicted batch in one dimension.
+    """Get the loss for the answer according to the mask.
+    
+    Args:
+        bert_config: config for bert.
+        input_tensor: float Tensor of shape [batch_size, seq_length, witdh].
+    """
     predicted_tensor = gather_indexes(input_tensor, positions)
 
     with tf.variable_scope('seq2seq/predictions'):
         with tf.variable_scope('transform'):
             input_tensor = tf.layers.dense(
-                input_tensor,
+                input_tensor=predicted_tensor,
                 uints=bert_config.hidden_size,
                 activation=gelu,
                 kernel_initializer=create_initializer(bert_config.initializer_range))
@@ -89,7 +93,7 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
             shape=[bert_config.vocab_size],
             initializer=tf.zeros_initializer())
         input_project = tf.matmul(input_tensor, projection_table, transpose_b=True)
-        logits = tf.matmul(input_tensor, embedding_table, transpose_b=True)
+        logits = tf.matmul(input_project, embedding_table, transpose_b=True)
         logits = tf.nn.bias_add(logits, output_bias)
         log_probs = tf.nn.log_softmax(logits, axis=-1)
 
@@ -121,12 +125,14 @@ def gather_indexes(input_tensor, positions):
     seq_length = input_shape[1]
     width = input_shape[2]
 
-    # 
+    # create a vector which saves the initial positions for each batch
     flat_offsets = tf.reshape(
         tf.range(0, batch_size, dtype=tf.int32) * seq_length, [-1, 1])
+    # get the absolute positions for the predicted labels, [batch_size * seq_length, 1]
     flat_postions = tf.reshape(positions + flat_offsets, [-1])
     flat_input_tensor = tf.reshape(input_tensor,
                                     [batch_size * seq_length, width])
+    # obtain the predicted items, [some_lenght, width]
     output_tensor = tf.gather(flat_input_tensor, flat_postions)
     
     return output_tensor
