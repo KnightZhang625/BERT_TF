@@ -104,7 +104,7 @@ class BertModel(object):
             with tf.variable_scope('encoder'):
                 # obtain the mask
                 attention_mask = _mh.create_attention_mask_from_input_mask(input_ids, input_mask)
-                
+            
                 self.all_encoder_layers = tranformer_model(input_tensor=self.embedding_output,
                                                            attention_mask=attention_mask,
                                                            hidden_size=config.hidden_size,

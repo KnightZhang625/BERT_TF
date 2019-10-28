@@ -58,38 +58,54 @@ def train_generator(path):
         padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
         input_ids += padding_part
 
-        input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(input_ids + padding_part))]    
+        # input_mask: -> [1, 1, 1, 0, 0],
+        # where 1 indicates the question part, 0 indicates both the answer part and padding part.
+        input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
+        # masked_lm_positions saves the relative positions for answer part and padding part.
+        # [[2, 3, 4, 5, 6], [5, 6]]
         masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
-        mask_lm_idx = ans + padding_part
-        mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]   
+        # ATTENTION: the above `masked_lm_positions` is not in the same length due to the various length of question,
+        # so padding the `masked_lm_positions` to the same length as input_ids,
+        # although the padding items are fake, the following `mask_lm_weights` will handle this.
+        masked_lm_positions += [masked_lm_positions[-1]  + 1 + idx  for idx in range(len(input_ids) - len(masked_lm_positions))]
+        mask_lm_ids = ans + padding_part
+        mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
+        mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]
+        mask_lm_weights += [0 for _ in range(len(input_ids) - len(mask_lm_weights))]  
+
+        # input_ids = [input_ids]
+        # input_mask = [input_mask]
+        # masked_lm_positions = [masked_lm_positions]
+        # mask_lm_ids = [mask_lm_ids]
+        # mask_lm_weights = [mask_lm_weights]
 
         # print(que)
         # print(ans)
-        # print(input_ids)
-        # print(input_mask)
-        # print(masked_lm_positions)
-        # print(mask_lm_idx)
-        # print(mask_lm_weights)
+        # print(len(input_ids))
+        # print(len(input_mask))
+        # print(len(masked_lm_positions))
+        # print(len(mask_lm_ids))
+        # print(len(mask_lm_weights))
         # input()
 
         features = {'input_ids': input_ids,
                     'input_mask': input_mask,
-                    'masked_lm_position': masked_lm_positions,
-                    'masked_lm_idx': mask_lm_idx,
+                    'masked_lm_positions': masked_lm_positions,
+                    'masked_lm_ids': mask_lm_ids,
                     'masked_lm_weights': mask_lm_weights}
         yield features
 
 def train_input_fn(path, batch_size, repeat_num):
     output_types = {'input_ids': tf.int32,
                     'input_mask': tf.int32,
-                    'masked_lm_position': tf.int32,
-                    'masked_lm_idx': tf.int32,
+                    'masked_lm_positions': tf.int32,
+                    'masked_lm_ids': tf.int32,
                     'masked_lm_weights': tf.int32}
-    output_shape = {'input_ids': (),
-                    'input_mask': (),
-                    'masked_lm_position': (),
-                    'masked_lm_idx': (),
-                    'masked_lm_weights': ()}
+    output_shape = {'input_ids': [None],
+                    'input_mask': [None],
+                    'masked_lm_positions': [None],
+                    'masked_lm_ids': [None],
+                    'masked_lm_weights': [None]}
     
     dataset = tf.data.Dataset.from_generator(
         functools.partial(train_generator, path),
@@ -100,4 +116,5 @@ def train_input_fn(path, batch_size, repeat_num):
     return dataset
 
 if __name__ == '__main__':
-    parse_data('data/train.data')
+    for i in train_generator('data/train.data'):
+        print(i)

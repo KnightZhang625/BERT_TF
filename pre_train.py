@@ -38,8 +38,6 @@ from load_data import train_input_fn
 from utils.log import log_info as _info
 from utils.log import log_error as _error
 
-flags = tf.flags
-FLAGS = flags.FLAGS
 
 # Prototype for tf.estimator
 def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_steps):
@@ -59,7 +57,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
         # segment_idx = features['segment_dis']
         masked_lm_positions = features['masked_lm_positions']   # [batch_size, seq_length], specify the answer
         masked_lm_ids = features['masked_lm_ids']               # [batch_size, answer_seq_length], specify the answer labels
-        masked_lm_weights = features['maked_lm_weights']        # [batch_size, seq_length], [1, 1, 0], 0 refers to the mask
+        masked_lm_weights = features['masked_lm_weights']        # [batch_size, seq_length], [1, 1, 0], 0 refers to the mask
         # next_sentence_labels = features['next_sentence_labels']
 
         # build model
@@ -142,8 +140,8 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
     with tf.variable_scope('seq2seq/predictions'):
         with tf.variable_scope('transform'):
             input_tensor = tf.layers.dense(
-                input_tensor=predicted_tensor,
-                uints=bert_config.hidden_size,
+                predicted_tensor,
+                units=bert_config.hidden_size,
                 activation=gelu,
                 kernel_initializer=create_initializer(bert_config.initializer_range))
         input_tensor = layer_norm(input_tensor)
@@ -158,8 +156,8 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
         # [some_length, vocab_size]
         log_probs = tf.nn.log_softmax(logits, axis=-1)
 
-        # [some_length]
-        label_ids = tf.cast(tf.reshape(label_ids, [-1]), dtypt=tf.float32)
+        # [some_length], no need to cast to tf.float32
+        label_ids = tf.reshape(label_ids, [-1])
         # [some_length]
         label_weights = tf.cast(tf.reshape(label_ids, [-1]), dtype=tf.float32)
 
@@ -205,18 +203,26 @@ def gather_indexes(input_tensor, positions):
     return output_tensor
 
 def main():
-    tf.gfile.MakeDirs(FLAGS.output_dir)
+    # tf.gfile.MakeDirs(FLAGS.output_dir)
+    Path(bert_config.model_dir).mkdir(exist_ok=True)
 
     model_fn = model_fn_builder(
         bert_config=bert_config,
-        init_checkpoint=FLAGS.init_checkpoint,
+        init_checkpoint=bert_config.init_checkpoint,
         learning_rate=bert_config.learning_rate,
-        num_train_steps=FLAGS.num_train_steps)
+        num_train_steps=bert_config.num_train_steps)
     
     input_fn = functools.partial(train_input_fn, 
                                  path=bert_config.data_path,
-                                 batch_size=FLAGS.batch_size,
-                                 repeat_num=FLAGS.repeat_num)
+                                 batch_size=bert_config.batch_size,
+                                 repeat_num=bert_config.num_train_steps)
 
-    estimator = tf.estimator.Estimator(model_fn, 'models')
-    estimator.train(input_fn, steps=FLAGS.num_train_steps)
+    run_config = tf.contrib.tpu.RunConfig(
+        keep_checkpoint_max=5,
+        save_checkpoints_steps=5,
+        model_dir=bert_config.model_dir)
+    estimator = tf.estimator.Estimator(model_fn, config=run_config)
+    estimator.train(input_fn, steps=bert_config.num_train_steps)
+
+if __name__ == '__main__':
+    main()

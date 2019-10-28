@@ -175,7 +175,6 @@ def self_attention_layer(from_tensor,
     Returns:
         float Tensor of shape [batch_size, from_seq_length, width].
     """
-
     def transpose_for_scores(input_tensor, batch_size, num_attention_heads,
                              seq_length, size_per_head):
         """Change the order of axes. witdh = num_attention_heads * size_per_head.
@@ -193,7 +192,7 @@ def self_attention_layer(from_tensor,
     # check the rank
     from_shape = _mh.get_shape_list(from_tensor, expected_rank=3)
     to_shape = _mh.get_shape_list(to_tensor, expected_rank=3)
-
+  
     if len(from_shape) != len(to_shape) != 3:
         _error('The rank of `from_tensor` should match the rank of `to_tensor`, and should be 3')
         raise ValueError
@@ -206,17 +205,19 @@ def self_attention_layer(from_tensor,
                                   activation=query_act,
                                   name='query',
                                   kernel_initializer=_mh.create_initializer(initializer_range))
+
     key_layer = tf.layers.dense(to_tensor,
                                 num_attention_heads * size_per_head,
                                 activation=key_act,
                                 name='key',
-                                kernel_regularizer=_mh.create_initializer(initializer_range))
+                                kernel_initializer=_mh.create_initializer(initializer_range))
+  
     value_layer = tf.layers.dense(to_tensor,
                                   num_attention_heads * size_per_head,
                                   activation=value_act,
                                   name='value',
-                                  kernel_regularizer=_mh.create_initializer(initializer_range))
-    
+                                  kernel_initializer=_mh.create_initializer(initializer_range))
+
     # [batch_size, seq_length, width] -> [batch_size, num_attention_heads, seq_length, size_per_head]
     query_layer = transpose_for_scores(query_layer, batch_size,
                                        num_attention_heads, from_seq_length,
