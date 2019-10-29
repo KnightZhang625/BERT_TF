@@ -10,7 +10,7 @@ from pathlib import Path
 PROJECT_PATH = Path(__file__).absolute().parent
 sys.path.insert(0, str(PROJECT_PATH))
 
-__name__ == ['train_input_fn']
+__name__ == ['train_input_fn', 'serving_input_receiver_fn']
 
 with codecs.open('data/vocab.data') as file:
     vocab_idx = {}
@@ -114,6 +114,21 @@ def train_input_fn(path, batch_size, repeat_num):
     dataset = dataset.batch(batch_size).repeat(repeat_num)
 
     return dataset
+
+def serving_input_receiver_fn():
+    """For prediction input."""
+    input_ids = tf.placeholder(dtype=tf.int32, shape=[1, None], name='input_ids')
+    input_mask = tf.placeholder(dtype=tf.int32, shape=[1, None], name='input_mask')
+    masked_lm_positions = tf.placeholder(dtype=tf.int32, shape=[1, None], name='masked_lm_postions')
+
+    receiver_tensors = {'input_ids': input_ids, 'input_mask': input_mask, 'masked_lm_postions': masked_lm_positions}
+    features = {'input_ids': input_ids,
+                'input_mask': input_mask,
+                'masked_lm_positions': tf.zeros([1, 10], dtype=tf.int32)}
+                # 'masked_lm_ids': tf.zeros([1, 10], dtype=tf.int32),
+                # 'masked_lm_weights': tf.zeros([1, 10], dtype=tf.int32)}
+
+    return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 
 if __name__ == '__main__':
     for i in train_generator('data/train.data'):
