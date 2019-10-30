@@ -43,13 +43,13 @@ class BertConfig(NoNewAttrs):
         intermediate_size = 32
 
         # initializer
-        initializer_range = 0.01
+        initializer_range = 0.1
 
         # global
         data_path = 'data/train.data'
         model_dir = 'models/'
         init_checkpoint = None
         batch_size = 10
-        num_train_steps = 1000000
+        num_train_steps = 100000
 
 bert_config = BertConfig()

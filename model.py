@@ -51,6 +51,8 @@ class BertModel(object):
             input_ids: int32 Tensor of shape [batch_size, seq_length].
             input_mask: (optional) int32 Tensor, 
                 this is the mask for point the padding indices, [batch_size, seq_length].
+                ATTENTION: for the UniLM model, the input_mask is shape as [seq_length, seq_length],
+                    see more in the `create_mask_for_lm` in load_data.py.
             token_type_ids: (optional) int32 Tensor, point the words belonging to different segments, 
                 [batch_size,seq_length].
             use_one_hot_embeddings: (optional) bool. Whether to use one-hot word embeddings 
@@ -103,6 +105,7 @@ class BertModel(object):
             # Encoder
             with tf.variable_scope('encoder'):
                 # obtain the mask
+                # ATTENTION: do not use the original mask method, see more in the comments below this class.
                 # attention_mask = _mh.create_attention_mask_from_input_mask(input_ids, input_mask)
                 attention_mask = input_mask
 

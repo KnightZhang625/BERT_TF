@@ -249,8 +249,10 @@ def package_model(model_path, pb_path):
 if __name__ == '__main__':
     # main()
 
-    package_model('models/', 'models_to_deploy/')
+    # package_model('models/', 'models_to_deploy/')
 
+
+    """the following code is just for test."""
     import codecs
     from load_data import create_mask_for_lm
 
@@ -367,21 +369,9 @@ if __name__ == '__main__':
         return next_element, None
 
 
-    for data in train_generator('data/train.data'):
+    for data in train_generator('data/test.data'):
         print(data)
         example_inpf = functools.partial(example_input_fn, data)
         for pred in estimator.predict(example_inpf):
             print(pred)
-            input()
-# [[ 330 1470    0    0    0    0    0    0    0    0]]
-# [[1 1 0 0 0 0 0 0 0 0]]
-# [[2 3 4 5 6 7 8 9]]
-    # # predict as server
-    # example_inpf = functools.partial(example_input_fn, 'data/train.data')
-    # for pred in estimator.predict(example_inpf):
-    #     print(pred)
-    #     input()
-
-    # for d in train_generator('data/train.data'):
-    #     print('\n', d)
-    #     input()
+            input(idx_vocab[pred])

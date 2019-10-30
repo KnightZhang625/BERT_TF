@@ -22,7 +22,6 @@ class bertPredict(object):
         self.predict_fn = predictor.from_saved_model(latest)
         self.vocab_idx, self.idx_vocab = self._load_vocab(vocab_path)
         
-
     def predict(self, input_ids, max_length):
         input_ids = convert_to_idx(input_ids)
         input_ids, input_mask, masked_lm_positions = self._process_input(input_ids, max_length)
@@ -31,10 +30,10 @@ class bertPredict(object):
         input_mask = np.array(input_mask, dtype=np.int32)
         masked_lm_positions = np.array(masked_lm_positions, dtype=np.int32)
 
-        # print(input_ids)
-        # print(input_mask)
-        # print(masked_lm_positions)
-        # input()
+        print(input_ids)
+        print(input_mask)
+        print(masked_lm_positions)
+        input()
         
         result = self.predict_fn(
             {'input_ids': input_ids,
@@ -47,7 +46,11 @@ class bertPredict(object):
 
         question_length = len(input_ids)
 
-        input_ids += [0 for _ in range(max_length - question_length)]
+        input_ids += [3 for _ in range(max_length - question_length)]
+        # input_ids[2] = 330
+        # input_ids[3] = 1470
+        # input_ids[4] = 1048
+        # input_ids[5] = 116
         input_mask = [1 for _ in range(question_length)] + [0 for _ in range(max_length - question_length)]
         input_mask = create_mask_for_lm(input_mask, question_length, max_length - question_length)
         masked_lm_positions = [question_length + idx for idx in range(max_length - question_length)]
@@ -67,7 +70,7 @@ class bertPredict(object):
 
 if __name__ == '__main__':
     bert = bertPredict('models_to_deploy', 'data/vocab.data')
-    result = bert.predict('你是谁', max_length=10)
+    result = bert.predict('你好', max_length=10)
     
     for idx in result['output']:
         print(bert.idx_vocab[idx])

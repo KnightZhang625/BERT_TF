@@ -53,6 +53,17 @@ def parse_data(path):
     return questions, answers, max_length
 
 def create_mask_for_lm(input_mask, len_que, len_ans_pad):
+    """create mask for UniLM.
+        This function replace the original mask as [1, 1, 0, 0, 0],
+        otherwise, it looks like:
+            [1, 1, 0, 0, 0]
+            [1, 1, 0, 0, 0]
+            [1, 1, 1, 0, 0]
+            [1, 1, 1, 1, 0]
+            [1, 1, 1, 1, 1]
+        because for question, all the words could see each other,
+        for answers, the words could see the predicted ones."""
+    
     lm_mask = []
     for _ in range(len_que):
         temp = copy.deepcopy(input_mask)
@@ -91,12 +102,6 @@ def train_generator(path):
         mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
         mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]
         mask_lm_weights += [0 for _ in range(len(input_ids) - len(mask_lm_weights))]  
-
-        # input_ids = [input_ids]
-        # input_mask = [input_mask]
-        # masked_lm_positions = [masked_lm_positions]
-        # mask_lm_ids = [mask_lm_ids]
-        # mask_lm_weights = [mask_lm_weights]
 
         # print(que)
         # print(ans)

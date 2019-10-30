@@ -181,7 +181,7 @@ def embedding_postprocessor(input_tensor,
     Returns:
         float Tensor with the identical shape as 'input_tensor'.
     """
-    input_shape = get_shape_list(input_tensor, expected_rank=3)
+    input_shape = get_shape_list(input_tensor, expected_rank=[2,3])
     batch_size, seq_length, width = input_shape[0], input_shape[1], input_shape[2]
 
     # create this variable in case of not use any pre-embeddings on the input_tensor
@@ -230,7 +230,7 @@ def create_attention_mask_from_input_mask(input_ids, input_mask):
     input_ids_shape = get_shape_list(input_ids, expected_rank=[2, 3])
     batch_size, input_length = input_ids_shape[0], input_ids_shape[1]
 
-    input_mask_shape = get_shape_list(input_mask, expected_rank=2)
+    input_mask_shape = get_shape_list(input_mask, expected_rank=[2, 3])
     mask_length = input_mask_shape[1]
 
     # initial_mask: [b, s, 1]       input_mask: [b, 1, s]
