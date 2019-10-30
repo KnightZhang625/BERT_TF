@@ -2,15 +2,17 @@
 # load data to the model
 
 import sys
+import copy
 import codecs
 import functools
+import numpy as np
 import tensorflow as tf
 
 from pathlib import Path
 PROJECT_PATH = Path(__file__).absolute().parent
 sys.path.insert(0, str(PROJECT_PATH))
 
-__name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx']
+__name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx', 'create_mask_for_lm']
 
 with codecs.open('data/vocab.data') as file:
     vocab_idx = {}
@@ -50,6 +52,21 @@ def parse_data(path):
 
     return questions, answers, max_length
 
+def create_mask_for_lm(input_mask, len_que, len_ans_pad):
+    lm_mask = []
+    for _ in range(len_que):
+        temp = copy.deepcopy(input_mask)
+        lm_mask.append(temp)
+
+    temp = copy.deepcopy(input_mask)
+    for idx in range(len_ans_pad):
+        tempp = copy.deepcopy(temp)
+        tempp[len_que + idx] = 1
+        lm_mask.append(tempp)
+        temp = copy.deepcopy(tempp)
+
+    return np.array(lm_mask)
+    
 def train_generator(path):
     """"This is the entrance to the input_fn."""
     questions, answers, max_length = parse_data(path)
@@ -61,6 +78,8 @@ def train_generator(path):
         # input_mask: -> [1, 1, 1, 0, 0],
         # where 1 indicates the question part, 0 indicates both the answer part and padding part.
         input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
+        input_mask = create_mask_for_lm(input_mask, len(que), len(ans + padding_part))
+ 
         # masked_lm_positions saves the relative positions for answer part and padding part.
         # [[2, 3, 4, 5, 6], [5, 6]]
         masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
@@ -102,7 +121,7 @@ def train_input_fn(path, batch_size, repeat_num):
                     'masked_lm_ids': tf.int32,
                     'masked_lm_weights': tf.int32}
     output_shape = {'input_ids': [None],
-                    'input_mask': [None],
+                    'input_mask': [None, None],
                     'masked_lm_positions': [None],
                     'masked_lm_ids': [None],
                     'masked_lm_weights': [None]}
@@ -117,16 +136,16 @@ def train_input_fn(path, batch_size, repeat_num):
 
 def serving_input_receiver_fn():
     """For prediction input."""
-    input_ids = tf.placeholder(dtype=tf.int32, shape=[1, None], name='input_ids')
-    input_mask = tf.placeholder(dtype=tf.int32, shape=[1, None], name='input_mask')
-    masked_lm_positions = tf.placeholder(dtype=tf.int32, shape=[1, None], name='masked_lm_postions')
+    input_ids = tf.placeholder(dtype=tf.int32, shape=[None, None], name='input_ids')
+    input_mask = tf.placeholder(dtype=tf.int32, shape=[None, None, None], name='input_mask')
+    masked_lm_positions = tf.placeholder(dtype=tf.int32, shape=[None, None], name='masked_lm_postions')
 
     receiver_tensors = {'input_ids': input_ids, 'input_mask': input_mask, 'masked_lm_positions': masked_lm_positions}
     features = {'input_ids': input_ids,
                 'input_mask': input_mask,
-                'masked_lm_positions': masked_lm_positions}
-                # 'masked_lm_ids': tf.zeros([1, 10], dtype=tf.int32),
-                # 'masked_lm_weights': tf.zeros([1, 10], dtype=tf.int32)}
+                'masked_lm_positions': masked_lm_positions,
+                'masked_lm_ids': tf.zeros([1, 10], dtype=tf.int32),
+                'masked_lm_weights': tf.zeros([1, 10], dtype=tf.int32)}
 
     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 

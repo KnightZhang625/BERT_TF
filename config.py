@@ -49,7 +49,7 @@ class BertConfig(NoNewAttrs):
         data_path = 'data/train.data'
         model_dir = 'models/'
         init_checkpoint = None
-        batch_size = 5
-        num_train_steps = 100
+        batch_size = 10
+        num_train_steps = 1000000
 
 bert_config = BertConfig()

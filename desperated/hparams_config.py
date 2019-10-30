@@ -48,7 +48,7 @@ class Config(NoNewAttrs):
     attention_ac = None
 
     # update
-    learning_rate = 5e-4
+    learning_rate =0.1
     decay_step = 1000
     lr_limit = 1e-4
 

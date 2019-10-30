@@ -63,8 +63,8 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
             # next_sentence_labels = features['next_sentence_labels']
         else:
             masked_lm_positions = features['masked_lm_positions']
-            masked_lm_ids = None
-            masked_lm_weights = None
+            masked_lm_ids = features['masked_lm_ids']
+            masked_lm_weights = features['masked_lm_weights']
 
         # build model
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
@@ -83,10 +83,11 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                                                          masked_lm_ids,
                                                          masked_lm_weights,
                                                          mode)
-    
+  
         if mode == tf.estimator.ModeKeys.PREDICT:
-            masked_lm_predictions = log_probs
-            # masked_lm_predictions = tf.argmax(log_probs, axis=-1, output_type=tf.int32)
+            _info(log_probs)
+            masked_lm_predictions = tf.reshape(tf.argmax(log_probs, axis=-1, output_type=tf.int32), [-1])
+            _info(masked_lm_predictions)
             output_spec = tf.estimator.EstimatorSpec(mode, predictions=masked_lm_predictions)
         else:
             if mode == tf.estimator.ModeKeys.TRAIN:   
@@ -246,11 +247,13 @@ def package_model(model_path, pb_path):
     estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
-    main()
+    # main()
 
-    # package_model('models/', 'models_to_deploy/')
+    package_model('models/', 'models_to_deploy/')
 
     import codecs
+    from load_data import create_mask_for_lm
+
     with codecs.open('data/vocab.data', 'r', 'utf-8') as file:
         vocab_idx = {}
         idx_vocab = {}
@@ -307,6 +310,7 @@ if __name__ == '__main__':
             # input_mask: -> [1, 1, 1, 0, 0],
             # where 1 indicates the question part, 0 indicates both the answer part and padding part.
             input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
+            input_mask = create_mask_for_lm(input_mask, len(que), len(ans + padding_part))
             # masked_lm_positions saves the relative positions for answer part and padding part.
             # [[2, 3, 4, 5, 6], [5, 6]]
             masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
@@ -342,29 +346,42 @@ if __name__ == '__main__':
             yield features
 
     ## we don't know the input as a web server, so use lambda to create fake generator
-    def example_input_fn(path):
+    def example_input_fn(data):
         output_types = {'input_ids': tf.int32,
                 'input_mask': tf.int32,
                 'masked_lm_positions': tf.int32,
                 'masked_lm_ids': tf.int32,
                 'masked_lm_weights': tf.int32}
         output_shape = {'input_ids': [None],
-                        'input_mask': [None],
+                        'input_mask': [None, None],
                         'masked_lm_positions': [None],
                         'masked_lm_ids': [None],
                         'masked_lm_weights': [None]}
-        
         dataset = tf.data.Dataset.from_generator(
-            functools.partial(train_generator, path),
+            lambda: [data],
             output_types=output_types,
             output_shapes=output_shape)
         # dataset = dataset.batch(batch_size).repeat(repeat_num)
         iterator = dataset.batch(1).make_one_shot_iterator()
         next_element = iterator.get_next()
-        return next_element
+        return next_element, None
 
-    ## predict as server
-    example_inpf = functools.partial(example_input_fn, 'data/train.data')
-    for pred in estimator.predict(example_inpf):
-        print(pred.shape)
-        input()
+
+    for data in train_generator('data/train.data'):
+        print(data)
+        example_inpf = functools.partial(example_input_fn, data)
+        for pred in estimator.predict(example_inpf):
+            print(pred)
+            input()
+# [[ 330 1470    0    0    0    0    0    0    0    0]]
+# [[1 1 0 0 0 0 0 0 0 0]]
+# [[2 3 4 5 6 7 8 9]]
+    # # predict as server
+    # example_inpf = functools.partial(example_input_fn, 'data/train.data')
+    # for pred in estimator.predict(example_inpf):
+    #     print(pred)
+    #     input()
+
+    # for d in train_generator('data/train.data'):
+    #     print('\n', d)
+    #     input()
