@@ -10,7 +10,7 @@ from pathlib import Path
 PROJECT_PATH = Path(__file__).absolute().parent
 sys.path.insert(0, str(PROJECT_PATH))
 
-__name__ == ['train_input_fn', 'serving_input_receiver_fn']
+__name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx']
 
 with codecs.open('data/vocab.data') as file:
     vocab_idx = {}
@@ -121,10 +121,10 @@ def serving_input_receiver_fn():
     input_mask = tf.placeholder(dtype=tf.int32, shape=[1, None], name='input_mask')
     masked_lm_positions = tf.placeholder(dtype=tf.int32, shape=[1, None], name='masked_lm_postions')
 
-    receiver_tensors = {'input_ids': input_ids, 'input_mask': input_mask, 'masked_lm_postions': masked_lm_positions}
+    receiver_tensors = {'input_ids': input_ids, 'input_mask': input_mask, 'masked_lm_positions': masked_lm_positions}
     features = {'input_ids': input_ids,
                 'input_mask': input_mask,
-                'masked_lm_positions': tf.zeros([1, 10], dtype=tf.int32)}
+                'masked_lm_positions': masked_lm_positions}
                 # 'masked_lm_ids': tf.zeros([1, 10], dtype=tf.int32),
                 # 'masked_lm_weights': tf.zeros([1, 10], dtype=tf.int32)}
 

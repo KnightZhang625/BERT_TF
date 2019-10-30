@@ -85,7 +85,8 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                                                          mode)
     
         if mode == tf.estimator.ModeKeys.PREDICT:
-            masked_lm_predictions = tf.argmax(log_probs, axis=-1, output_type=tf.int32)
+            masked_lm_predictions = log_probs
+            # masked_lm_predictions = tf.argmax(log_probs, axis=-1, output_type=tf.int32)
             output_spec = tf.estimator.EstimatorSpec(mode, predictions=masked_lm_predictions)
         else:
             if mode == tf.estimator.ModeKeys.TRAIN:   
@@ -142,6 +143,7 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
         per_loss: per word loss.
         log_probs: log probability.
     """
+
     predicted_tensor = gather_indexes(input_tensor, positions)
 
     with tf.variable_scope('seq2seq/predictions'):
@@ -209,7 +211,7 @@ def gather_indexes(input_tensor, positions):
                                     [batch_size * seq_length, width])
     # obtain the predicted items, [some_lenght, width]
     output_tensor = tf.gather(flat_input_tensor, flat_postions)
-    
+
     return output_tensor
 
 def main():
@@ -229,21 +231,140 @@ def main():
 
     run_config = tf.contrib.tpu.RunConfig(
         keep_checkpoint_max=1,
-        save_checkpoints_steps=50,
+        save_checkpoints_steps=100,
         model_dir=bert_config.model_dir)
     estimator = tf.estimator.Estimator(model_fn, config=run_config)
     estimator.train(input_fn, steps=bert_config.num_train_steps)
 
-def package_model(path):
+def package_model(model_path, pb_path):
     model_fn = model_fn_builder(
         bert_config=bert_config,
         init_checkpoint=bert_config.init_checkpoint,
         learning_rate=bert_config.learning_rate,
         num_train_steps=bert_config.num_train_steps)
-    estimator = tf.estimator.Estimator(model_fn, path)
-    estimator.export_saved_model('models_to_deploy', serving_input_receiver_fn)
+    estimator = tf.estimator.Estimator(model_fn, model_path)
+    estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
     main()
 
-    package_model('models/')
+    # package_model('models/', 'models_to_deploy/')
+
+    import codecs
+    with codecs.open('data/vocab.data', 'r', 'utf-8') as file:
+        vocab_idx = {}
+        idx_vocab = {}
+        for idx, vocab in enumerate(file):
+            vocab = vocab.strip()
+            idx = int(idx)
+            vocab_idx[vocab] = idx
+            idx_vocab[idx] = vocab
+
+    model_fn = model_fn_builder(
+        bert_config=bert_config,
+        init_checkpoint=bert_config.init_checkpoint,
+        learning_rate=bert_config.learning_rate,
+        num_train_steps=bert_config.num_train_steps)
+    estimator = tf.estimator.Estimator(model_fn, 'models/')
+
+    def convert_to_idx(line):
+        """convert the vocab to idx."""
+        result = []
+        for vocab in line:
+            try:
+                result.append(vocab_idx[vocab])
+            except KeyError:
+                result.append(vocab_idx['<unk>'])
+        
+        return result
+
+    def parse_data(path):
+        """process the data."""
+        with codecs.open(path, 'r', 'utf-8') as file:
+            questions = []
+            answers = []
+            for line in file:
+                line = line.strip().split('=')
+                que, ans = convert_to_idx(line[0]), convert_to_idx(line[1])
+                questions.append(que)
+                answers.append(ans)
+        assert len(questions) == len(answers)
+        
+        # get max length to pad
+        length = [len(ans) + len(que) for ans, que in zip(questions, answers)]
+        max_length = max(length)
+
+        return questions, answers, max_length
+
+    def train_generator(path):
+        """"This is the entrance to the input_fn."""
+        questions, answers, max_length = parse_data(path)
+        for que, ans in zip(questions, answers):
+            input_ids = que + ans
+            padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
+            input_ids += padding_part
+
+            # input_mask: -> [1, 1, 1, 0, 0],
+            # where 1 indicates the question part, 0 indicates both the answer part and padding part.
+            input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
+            # masked_lm_positions saves the relative positions for answer part and padding part.
+            # [[2, 3, 4, 5, 6], [5, 6]]
+            masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
+            # ATTENTION: the above `masked_lm_positions` is not in the same length due to the various length of question,
+            # so padding the `masked_lm_positions` to the same length as input_ids,
+            # although the padding items are fake, the following `mask_lm_weights` will handle this.
+            masked_lm_positions += [masked_lm_positions[-1]  + 1 + idx  for idx in range(len(input_ids) - len(masked_lm_positions))]
+            mask_lm_ids = ans + padding_part
+            mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
+            mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]
+            mask_lm_weights += [0 for _ in range(len(input_ids) - len(mask_lm_weights))]  
+
+            # input_ids = [input_ids]
+            # input_mask = [input_mask]
+            # masked_lm_positions = [masked_lm_positions]
+            # mask_lm_ids = [mask_lm_ids]
+            # mask_lm_weights = [mask_lm_weights]
+
+            # print(que)
+            # print(ans)
+            # print(len(input_ids))
+            # print(len(input_mask))
+            # print(len(masked_lm_positions))
+            # print(len(mask_lm_ids))
+            # print(len(mask_lm_weights))
+            # input()
+
+            features = {'input_ids': input_ids,
+                        'input_mask': input_mask,
+                        'masked_lm_positions': masked_lm_positions,
+                        'masked_lm_ids': mask_lm_ids,
+                        'masked_lm_weights': mask_lm_weights}
+            yield features
+
+    ## we don't know the input as a web server, so use lambda to create fake generator
+    def example_input_fn(path):
+        output_types = {'input_ids': tf.int32,
+                'input_mask': tf.int32,
+                'masked_lm_positions': tf.int32,
+                'masked_lm_ids': tf.int32,
+                'masked_lm_weights': tf.int32}
+        output_shape = {'input_ids': [None],
+                        'input_mask': [None],
+                        'masked_lm_positions': [None],
+                        'masked_lm_ids': [None],
+                        'masked_lm_weights': [None]}
+        
+        dataset = tf.data.Dataset.from_generator(
+            functools.partial(train_generator, path),
+            output_types=output_types,
+            output_shapes=output_shape)
+        # dataset = dataset.batch(batch_size).repeat(repeat_num)
+        iterator = dataset.batch(1).make_one_shot_iterator()
+        next_element = iterator.get_next()
+        return next_element
+
+    ## predict as server
+    example_inpf = functools.partial(example_input_fn, 'data/train.data')
+    for pred in estimator.predict(example_inpf):
+        print(pred.shape)
+        input()
