@@ -18,7 +18,7 @@ python pre_train.py
 ## Log  
 - 30 Oct
 >>The model now could be run correctly.  
->>add `run_predict.py` for prediction, however, due to the training process could see the answert,  
+>>add `run_predict.py` for prediction, however, due to the training process could see the answer,  
 >>the result is not good when do prediction, maybe should train three language models where the original paper mentions.  
 
 - 28 Oct  
