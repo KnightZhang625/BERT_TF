@@ -11,7 +11,7 @@ PROJECT_PATH = Path(__file__).absolute().parent
 sys.path.insert(0, str(PROJECT_PATH))
 
 from utils.log import log_error as _error
-from load_data import convert_to_idx, create_mask_for_lm
+from load_data import convert_to_idx, create_mask_for_lm, create_mask_for_seq
 
 class bertPredict(object):
     def __init__(self, pb_path, vocab_path):
@@ -52,7 +52,7 @@ class bertPredict(object):
         # input_ids[4] = 1048
         # input_ids[5] = 116
         input_mask = [1 for _ in range(question_length)] + [0 for _ in range(max_length - question_length)]
-        input_mask = create_mask_for_lm(input_mask, question_length, max_length - question_length)
+        input_mask = create_mask_for_seq(input_mask, question_length, max_length - question_length)
         masked_lm_positions = [question_length + idx for idx in range(max_length - question_length)]
 
         return [input_ids], [input_mask], [masked_lm_positions]
@@ -69,7 +69,7 @@ class bertPredict(object):
         return vocab_idx, idx_vocab
 
 if __name__ == '__main__':
-    bert = bertPredict('models_to_deploy', 'data/vocab.data')
+    bert = bertPredict('models_to_deploy', 'data/vocab.txt')
     result = bert.predict('你好', max_length=10)
     
     for idx in result['output']:

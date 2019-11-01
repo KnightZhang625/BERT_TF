@@ -141,7 +141,7 @@ def embedding_lookup_factorized(input_ids,
         embeddings = tf.nn.embedding_lookup(embedding_table, input_ids)
     
     # project embedding dimension to the hidden size
-    project_variable = tf.get_variable(name='projection_embeddings',
+    project_variable = tf.get_variable(name=word_embedding_name+'_2',
                                        shape=[embedding_size, hidden_size],
                                        initializer=create_initializer(initializer_range))
     # [batch_size, seq_length, embedding_size] -> [batch_size, seq_length, hidden_size]
@@ -157,7 +157,7 @@ def embedding_postprocessor(input_tensor,
                             use_positional_embeddings=True,
                             positional_embedding_type='normal',
                             pre_positional_embeddings=None,
-                            positional_embedding_name='positional_embeddings',
+                            positional_embedding_name='position_embeddings',
                             initializer_range=0.01,
                             max_positional_embeddings=512,
                             dropout_prob=0.01):

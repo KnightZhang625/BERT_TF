@@ -74,7 +74,7 @@ class BertModel(object):
         if token_type_ids is None:
             token_type_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
         
-        with tf.variable_scope(scope, default_name='albert'):
+        with tf.variable_scope(scope, default_name='bert'):
             # Embedding
             with tf.variable_scope('embeddings'):
                 # 1. obtain embeddings
@@ -97,7 +97,7 @@ class BertModel(object):
                     use_positional_embeddings=True,
                     positional_embedding_type=config.pre_positional_embedding_type,
                     pre_positional_embeddings=pre_positional_embeddings,
-                    positional_embedding_name='positional_embeddings',
+                    positional_embedding_name='position_embeddings',
                     initializer_range=config.initializer_range,
                     max_positional_embeddings=config.max_positional_embeddings,
                     dropout_prob=config.hidden_dropout_prob)

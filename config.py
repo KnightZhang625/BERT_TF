@@ -27,20 +27,20 @@ class NoNewAttrs(object):
 
 class BertConfig(NoNewAttrs):
         # train
-        learning_rate = 1e-3
+        learning_rate = 1e-4
 
         # model
-        vocab_size = 7819
-        embedding_size = 32
-        hidden_size = 64
-        max_positional_embeddings = 30
+        vocab_size = 21128
+        embedding_size = 128
+        hidden_size = 312
+        max_positional_embeddings = 512
         token_type_vocab_size = 0
         pre_positional_embedding_type = 'normal'
         hidden_dropout_prob = 0.1
         attention_probs_dropout_prob = 0.1 
-        num_hidden_layers = int(2)
-        num_attention_heads = int(2)
-        intermediate_size = 32
+        num_hidden_layers = int(4)
+        num_attention_heads = int(12)
+        intermediate_size = 1248
 
         # initializer
         initializer_range = 0.1
@@ -48,7 +48,7 @@ class BertConfig(NoNewAttrs):
         # global
         data_path = 'data/train.data'
         model_dir = 'models/'
-        init_checkpoint = None
+        init_checkpoint = 'pretrained_model/albert_model.ckpt'
         batch_size = 10
         num_train_steps = 100000
 

@@ -109,3 +109,4 @@ tutorial/result/
 tutorial/saved_model/
 data/
 models_to_deploy/
+pretrained_model

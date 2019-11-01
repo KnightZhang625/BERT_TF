@@ -108,15 +108,15 @@ def tranformer_model(input_tensor,
                                                           batch_size=batch_size,
                                                           from_seq_length=seq_length,
                                                           to_seq_length=seq_length)
-                    attention_output = attention_head
-                    # perform residual layer to finish the self-attention block
-                    with tf.variable_scope('output'):
-                        attention_output = tf.layers.dense(
-                            attention_output,
-                            hidden_size,
-                            kernel_initializer=_mh.create_initializer(initializer_range))
-                        attention_output = _mh.dropout(attention_output, hidden_dropout_prob)
-                        attention_output = _mh.layer_norm(attention_output + layer_input)
+                attention_output = attention_head
+                # perform residual layer to finish the self-attention block
+                with tf.variable_scope('output'):
+                    attention_output = tf.layers.dense(
+                        attention_output,
+                        hidden_size,
+                        kernel_initializer=_mh.create_initializer(initializer_range))
+                    attention_output = _mh.dropout(attention_output, hidden_dropout_prob)
+                    attention_output = _mh.layer_norm(attention_output + layer_input)
 
             # do double linear projection to enhance the context representation
             with tf.variable_scope('intermediate'):

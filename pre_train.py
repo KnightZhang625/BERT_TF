@@ -31,13 +31,13 @@ sys.path.insert(0, str(PROJECT_PATH))
 from utils.setup import Setup
 setup = Setup()
 
+import optimization
 from model import BertModel
 from model_helper import *
 from config import bert_config
 from load_data import train_input_fn, serving_input_receiver_fn
 from utils.log import log_info as _info
 from utils.log import log_error as _error
-
 
 # Prototype for tf.estimator
 def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_steps):
@@ -106,16 +106,20 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                     if var.name in initialized_variable_names:
                         init_string = ', *INIT_FROM_CKPT*'
                     _info('name = {}, shape={}{}'.format(var.name, var.shape, init_string))
-                learning_rate = tf.train.polynomial_decay(bert_config.learning_rate,
-                                                        tf.train.get_or_create_global_step(),
-                                                        num_train_steps,
-                                                        end_learning_rate=0.0,
-                                                        power=1.0,
-                                                        cycle=False)
-                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-                gradients = tf.gradients(loss, tvars, colocate_gradients_with_ops=True)
-                clipped_gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-                train_op = optimizer.apply_gradients(zip(clipped_gradients, tvars), global_step=tf.train.get_global_step())
+                
+                train_op = optimization.create_optimizer(
+                    loss, bert_config.learning_rate, num_train_steps)
+
+                # learning_rate = tf.train.polynomial_decay(bert_config.learning_rate,
+                #                                         tf.train.get_or_create_global_step(),
+                #                                         num_train_steps,
+                #                                         end_learning_rate=0.0,
+                #                                         power=1.0,
+                #                                         cycle=False)
+                # optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+                # gradients = tf.gradients(loss, tvars, colocate_gradients_with_ops=True)
+                # clipped_gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+                # train_op = optimizer.apply_gradients(zip(clipped_gradients, tvars), global_step=tf.train.get_global_step())
                 output_spec = tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
             elif mode == tf.estimator.ModeKeys.EVAL:
                 # TODO define the metrics
@@ -147,14 +151,14 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
 
     predicted_tensor = gather_indexes(input_tensor, positions)
 
-    with tf.variable_scope('seq2seq/predictions'):
+    with tf.variable_scope('cls/predictions'):
         with tf.variable_scope('transform'):
             input_tensor = tf.layers.dense(
                 predicted_tensor,
                 units=bert_config.hidden_size,
                 activation=gelu,
                 kernel_initializer=create_initializer(bert_config.initializer_range))
-        input_tensor = layer_norm(input_tensor)
+            input_tensor = layer_norm(input_tensor)
 
         output_bias = tf.get_variable(
             'output_bias',
@@ -247,131 +251,131 @@ def package_model(model_path, pb_path):
     estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    # package_model('models/', 'models_to_deploy/')
+    package_model('models/', 'models_to_deploy/')
 
 
     """the following code is just for test."""
-    import codecs
-    from load_data import create_mask_for_lm
+    # import codecs
+    # from load_data import create_mask_for_lm, create_mask_for_seq
 
-    with codecs.open('data/vocab.data', 'r', 'utf-8') as file:
-        vocab_idx = {}
-        idx_vocab = {}
-        for idx, vocab in enumerate(file):
-            vocab = vocab.strip()
-            idx = int(idx)
-            vocab_idx[vocab] = idx
-            idx_vocab[idx] = vocab
+    # with codecs.open('data/vocab.txt', 'r', 'utf-8') as file:
+    #     vocab_idx = {}
+    #     idx_vocab = {}
+    #     for idx, vocab in enumerate(file):
+    #         vocab = vocab.strip()
+    #         idx = int(idx)
+    #         vocab_idx[vocab] = idx
+    #         idx_vocab[idx] = vocab
 
-    model_fn = model_fn_builder(
-        bert_config=bert_config,
-        init_checkpoint=bert_config.init_checkpoint,
-        learning_rate=bert_config.learning_rate,
-        num_train_steps=bert_config.num_train_steps)
-    estimator = tf.estimator.Estimator(model_fn, 'models/')
+    # model_fn = model_fn_builder(
+    #     bert_config=bert_config,
+    #     init_checkpoint=bert_config.init_checkpoint,
+    #     learning_rate=bert_config.learning_rate,
+    #     num_train_steps=bert_config.num_train_steps)
+    # estimator = tf.estimator.Estimator(model_fn, 'models/')
 
-    def convert_to_idx(line):
-        """convert the vocab to idx."""
-        result = []
-        for vocab in line:
-            try:
-                result.append(vocab_idx[vocab])
-            except KeyError:
-                result.append(vocab_idx['<unk>'])
+    # def convert_to_idx(line):
+    #     """convert the vocab to idx."""
+    #     result = []
+    #     for vocab in line:
+    #         try:
+    #             result.append(vocab_idx[vocab])
+    #         except KeyError:
+    #             result.append(vocab_idx['<unk>'])
         
-        return result
+    #     return result
 
-    def parse_data(path):
-        """process the data."""
-        with codecs.open(path, 'r', 'utf-8') as file:
-            questions = []
-            answers = []
-            for line in file:
-                line = line.strip().split('=')
-                que, ans = convert_to_idx(line[0]), convert_to_idx(line[1])
-                questions.append(que)
-                answers.append(ans)
-        assert len(questions) == len(answers)
+    # def parse_data(path):
+    #     """process the data."""
+    #     with codecs.open(path, 'r', 'utf-8') as file:
+    #         questions = []
+    #         answers = []
+    #         for line in file:
+    #             line = line.strip().split('=')
+    #             que, ans = convert_to_idx(line[0]), convert_to_idx(line[1])
+    #             questions.append(que)
+    #             answers.append(ans)
+    #     assert len(questions) == len(answers)
         
-        # get max length to pad
-        length = [len(ans) + len(que) for ans, que in zip(questions, answers)]
-        max_length = max(length)
+    #     # get max length to pad
+    #     length = [len(ans) + len(que) for ans, que in zip(questions, answers)]
+    #     max_length = max(length)
 
-        return questions, answers, max_length
+    #     return questions, answers, max_length
 
-    def train_generator(path):
-        """"This is the entrance to the input_fn."""
-        questions, answers, max_length = parse_data(path)
-        for que, ans in zip(questions, answers):
-            input_ids = que + ans
-            padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
-            input_ids += padding_part
+    # def train_generator(path):
+    #     """"This is the entrance to the input_fn."""
+    #     questions, answers, max_length = parse_data(path)
+    #     for que, ans in zip(questions, answers):
+    #         input_ids = que + ans
+    #         padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
+    #         input_ids += padding_part
 
-            # input_mask: -> [1, 1, 1, 0, 0],
-            # where 1 indicates the question part, 0 indicates both the answer part and padding part.
-            input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
-            input_mask = create_mask_for_lm(input_mask, len(que), len(ans + padding_part))
-            # masked_lm_positions saves the relative positions for answer part and padding part.
-            # [[2, 3, 4, 5, 6], [5, 6]]
-            masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
-            # ATTENTION: the above `masked_lm_positions` is not in the same length due to the various length of question,
-            # so padding the `masked_lm_positions` to the same length as input_ids,
-            # although the padding items are fake, the following `mask_lm_weights` will handle this.
-            masked_lm_positions += [masked_lm_positions[-1]  + 1 + idx  for idx in range(len(input_ids) - len(masked_lm_positions))]
-            mask_lm_ids = ans + padding_part
-            mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
-            mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]
-            mask_lm_weights += [0 for _ in range(len(input_ids) - len(mask_lm_weights))]  
+    #         # input_mask: -> [1, 1, 1, 0, 0],
+    #         # where 1 indicates the question part, 0 indicates both the answer part and padding part.
+    #         input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
+    #         input_mask = create_mask_for_seq(input_mask, len(que), len(ans + padding_part))
+    #         # masked_lm_positions saves the relative positions for answer part and padding part.
+    #         # [[2, 3, 4, 5, 6], [5, 6]]
+    #         masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
+    #         # ATTENTION: the above `masked_lm_positions` is not in the same length due to the various length of question,
+    #         # so padding the `masked_lm_positions` to the same length as input_ids,
+    #         # although the padding items are fake, the following `mask_lm_weights` will handle this.
+    #         masked_lm_positions += [masked_lm_positions[-1]  + 1 + idx  for idx in range(len(input_ids) - len(masked_lm_positions))]
+    #         mask_lm_ids = ans + padding_part
+    #         mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
+    #         mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]
+    #         mask_lm_weights += [0 for _ in range(len(input_ids) - len(mask_lm_weights))]  
 
-            # input_ids = [input_ids]
-            # input_mask = [input_mask]
-            # masked_lm_positions = [masked_lm_positions]
-            # mask_lm_ids = [mask_lm_ids]
-            # mask_lm_weights = [mask_lm_weights]
+    #         # input_ids = [input_ids]
+    #         # input_mask = [input_mask]
+    #         # masked_lm_positions = [masked_lm_positions]
+    #         # mask_lm_ids = [mask_lm_ids]
+    #         # mask_lm_weights = [mask_lm_weights]
 
-            # print(que)
-            # print(ans)
-            # print(len(input_ids))
-            # print(len(input_mask))
-            # print(len(masked_lm_positions))
-            # print(len(mask_lm_ids))
-            # print(len(mask_lm_weights))
-            # input()
+    #         # print(que)
+    #         # print(ans)
+    #         # print(len(input_ids))
+    #         # print(len(input_mask))
+    #         # print(len(masked_lm_positions))
+    #         # print(len(mask_lm_ids))
+    #         # print(len(mask_lm_weights))
+    #         # input()
 
-            features = {'input_ids': input_ids,
-                        'input_mask': input_mask,
-                        'masked_lm_positions': masked_lm_positions,
-                        'masked_lm_ids': mask_lm_ids,
-                        'masked_lm_weights': mask_lm_weights}
-            yield features
+    #         features = {'input_ids': input_ids,
+    #                     'input_mask': input_mask,
+    #                     'masked_lm_positions': masked_lm_positions,
+    #                     'masked_lm_ids': mask_lm_ids,
+    #                     'masked_lm_weights': mask_lm_weights}
+    #         yield features
 
-    ## we don't know the input as a web server, so use lambda to create fake generator
-    def example_input_fn(data):
-        output_types = {'input_ids': tf.int32,
-                'input_mask': tf.int32,
-                'masked_lm_positions': tf.int32,
-                'masked_lm_ids': tf.int32,
-                'masked_lm_weights': tf.int32}
-        output_shape = {'input_ids': [None],
-                        'input_mask': [None, None],
-                        'masked_lm_positions': [None],
-                        'masked_lm_ids': [None],
-                        'masked_lm_weights': [None]}
-        dataset = tf.data.Dataset.from_generator(
-            lambda: [data],
-            output_types=output_types,
-            output_shapes=output_shape)
-        # dataset = dataset.batch(batch_size).repeat(repeat_num)
-        iterator = dataset.batch(1).make_one_shot_iterator()
-        next_element = iterator.get_next()
-        return next_element, None
+    # ## we don't know the input as a web server, so use lambda to create fake generator
+    # def example_input_fn(data):
+    #     output_types = {'input_ids': tf.int32,
+    #             'input_mask': tf.int32,
+    #             'masked_lm_positions': tf.int32,
+    #             'masked_lm_ids': tf.int32,
+    #             'masked_lm_weights': tf.int32}
+    #     output_shape = {'input_ids': [None],
+    #                     'input_mask': [None, None],
+    #                     'masked_lm_positions': [None],
+    #                     'masked_lm_ids': [None],
+    #                     'masked_lm_weights': [None]}
+    #     dataset = tf.data.Dataset.from_generator(
+    #         lambda: [data],
+    #         output_types=output_types,
+    #         output_shapes=output_shape)
+    #     # dataset = dataset.batch(batch_size).repeat(repeat_num)
+    #     iterator = dataset.batch(1).make_one_shot_iterator()
+    #     next_element = iterator.get_next()
+    #     return next_element, None
 
 
-    for data in train_generator('data/test.data'):
-        print(data)
-        example_inpf = functools.partial(example_input_fn, data)
-        for pred in estimator.predict(example_inpf):
-            print(pred)
-            input(idx_vocab[pred])
+    # for data in train_generator('data/test.data'):
+    #     print(data)
+    #     example_inpf = functools.partial(example_input_fn, data)
+    #     for pred in estimator.predict(example_inpf):
+    #         print(pred)
+    #         input(idx_vocab[pred])

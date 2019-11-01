@@ -14,7 +14,7 @@ sys.path.insert(0, str(PROJECT_PATH))
 
 __name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx', 'create_mask_for_lm']
 
-with codecs.open('data/vocab.data') as file:
+with codecs.open('data/vocab.txt') as file:
     vocab_idx = {}
     idx_vocab = {}
     for idx, vocab in enumerate(file):
@@ -52,8 +52,8 @@ def parse_data(path):
 
     return questions, answers, max_length
 
-def create_mask_for_lm(input_mask, len_que, len_ans_pad):
-    """create mask for UniLM.
+def create_mask_for_seq(input_mask, len_que, len_ans_pad):
+    """create mask for UniLM seq2seq task.
         This function replace the original mask as [1, 1, 0, 0, 0],
         otherwise, it looks like:
             [1, 1, 0, 0, 0]
@@ -77,8 +77,18 @@ def create_mask_for_lm(input_mask, len_que, len_ans_pad):
         temp = copy.deepcopy(tempp)
 
     return np.array(lm_mask)
+
+def create_mask_for_lm(length):
+    """create mask for UniLM language model task."""
+    mask = []
+    for row in range(length):
+        print(row)
+        row_mask = [1 for col in range(row + 1)] + [0 for col in range(length - row - 1)]
+        mask.append(row_mask)
     
-def train_generator(path):
+    return np.array(mask)
+    
+def train_generator(path, train_type=None):
     """"This is the entrance to the input_fn."""
     questions, answers, max_length = parse_data(path)
     for que, ans in zip(questions, answers):
@@ -89,7 +99,7 @@ def train_generator(path):
         # input_mask: -> [1, 1, 1, 0, 0],
         # where 1 indicates the question part, 0 indicates both the answer part and padding part.
         input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
-        input_mask = create_mask_for_lm(input_mask, len(que), len(ans + padding_part))
+        input_mask = create_mask_for_seq(input_mask, len(que), len(ans + padding_part))
  
         # masked_lm_positions saves the relative positions for answer part and padding part.
         # [[2, 3, 4, 5, 6], [5, 6]]
@@ -119,7 +129,7 @@ def train_generator(path):
                     'masked_lm_weights': mask_lm_weights}
         yield features
 
-def train_input_fn(path, batch_size, repeat_num):
+def train_input_fn(path, batch_size, repeat_num, train_type=None):
     output_types = {'input_ids': tf.int32,
                     'input_mask': tf.int32,
                     'masked_lm_positions': tf.int32,
@@ -132,7 +142,7 @@ def train_input_fn(path, batch_size, repeat_num):
                     'masked_lm_weights': [None]}
     
     dataset = tf.data.Dataset.from_generator(
-        functools.partial(train_generator, path),
+        functools.partial(train_generator, path, train_type),
         output_types=output_types,
         output_shapes=output_shape)
     dataset = dataset.batch(batch_size).repeat(repeat_num)
