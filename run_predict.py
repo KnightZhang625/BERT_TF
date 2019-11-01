@@ -3,6 +3,7 @@
 
 import sys
 import codecs
+import pickle
 import numpy as np
 from tensorflow.contrib import predictor
 
@@ -13,6 +14,11 @@ sys.path.insert(0, str(PROJECT_PATH))
 from utils.log import log_error as _error
 from load_data import convert_to_idx, create_mask_for_lm, create_mask_for_seq
 
+with codecs.open('data/vocab_idx.pt', 'rb') as file, \
+     codecs.open('data/idx_vocab.pt', 'rb') as file_2:
+    vocab_idx = pickle.load(file)
+    idx_vocab = pickle.load(file_2)
+
 class bertPredict(object):
     def __init__(self, pb_path, vocab_path):
         subdirs = [x for x in Path(pb_path).iterdir()
@@ -20,7 +26,7 @@ class bertPredict(object):
         latest = str(sorted(subdirs)[-1])
 
         self.predict_fn = predictor.from_saved_model(latest)
-        self.vocab_idx, self.idx_vocab = self._load_vocab(vocab_path)
+        self.vocab_idx, self.idx_vocab = vocab_idx, idx_vocab
         
     def predict(self, input_ids, max_length):
         input_ids = convert_to_idx(input_ids)
@@ -30,11 +36,6 @@ class bertPredict(object):
         input_mask = np.array(input_mask, dtype=np.int32)
         masked_lm_positions = np.array(masked_lm_positions, dtype=np.int32)
 
-        print(input_ids)
-        print(input_mask)
-        print(masked_lm_positions)
-        input()
-        
         result = self.predict_fn(
             {'input_ids': input_ids,
              'input_mask': input_mask,
@@ -45,8 +46,7 @@ class bertPredict(object):
         assert len(input_ids) < max_length, _error('Input length is larger than the maximum length')
 
         question_length = len(input_ids)
-
-        input_ids += [3 for _ in range(max_length - question_length)]
+        input_ids += [0 for _ in range(max_length - question_length)]
         # input_ids[2] = 330
         # input_ids[3] = 1470
         # input_ids[4] = 1048
@@ -57,20 +57,22 @@ class bertPredict(object):
 
         return [input_ids], [input_mask], [masked_lm_positions]
 
-    def _load_vocab(self, vocab_path):
-        with codecs.open(vocab_path, 'r', 'utf-8') as file:
-            vocab_idx = {}
-            idx_vocab = {}
-            for idx, vocab in enumerate(file):
-                vocab = vocab.strip()
-                idx = int(idx)
-                vocab_idx[vocab] = idx
-                idx_vocab[idx] = vocab
-        return vocab_idx, idx_vocab
+    # def _load_vocab(self, vocab_path):
+    #     with codecs.open(vocab_path, 'r', 'utf-8') as file:
+    #         vocab_idx = {}
+    #         idx_vocab = {}
+    #         for idx, vocab in enumerate(file):
+    #             vocab = vocab.strip()
+    #             vocab_idx[vocab] = idx
+    #             idx_vocab[idx] = vocab
+    #     print('r', vocab_idx['你'])
+    #     print('r', idx_vocab[871])
+    #     return vocab_idx, idx_vocab
 
 if __name__ == '__main__':
     bert = bertPredict('models_to_deploy', 'data/vocab.txt')
-    result = bert.predict('你好', max_length=10)
+    result = bert.predict('早上好', max_length=16)
     
     for idx in result['output']:
         print(bert.idx_vocab[idx])
+    

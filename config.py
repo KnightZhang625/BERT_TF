@@ -36,14 +36,14 @@ class BertConfig(NoNewAttrs):
         max_positional_embeddings = 512
         token_type_vocab_size = 0
         pre_positional_embedding_type = 'normal'
-        hidden_dropout_prob = 0.1
+        hidden_dropout_prob = 0.0
         attention_probs_dropout_prob = 0.1 
         num_hidden_layers = int(4)
         num_attention_heads = int(12)
         intermediate_size = 1248
 
         # initializer
-        initializer_range = 0.1
+        initializer_range = 0.0
 
         # global
         data_path = 'data/train.data'
@@ -51,5 +51,6 @@ class BertConfig(NoNewAttrs):
         init_checkpoint = 'pretrained_model/albert_model.ckpt'
         batch_size = 10
         num_train_steps = 100000
+        train_type = 'seq2seq'
 
 bert_config = BertConfig()

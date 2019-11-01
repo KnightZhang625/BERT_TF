@@ -55,17 +55,22 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
         input_ids = features['input_ids']       # [batch_size, seq_length]
         input_mask = features['input_mask']     # [batch_size, seq_length]
 
-        if mode != tf.estimator.ModeKeys.PREDICT:
-            # segment_idx = features['segment_dis']
-            masked_lm_positions = features['masked_lm_positions']   # [batch_size, seq_length], specify the answer
-            masked_lm_ids = features['masked_lm_ids']               # [batch_size, answer_seq_length], specify the answer labels
-            masked_lm_weights = features['masked_lm_weights']        # [batch_size, seq_length], [1, 1, 0], 0 refers to the mask
-            # next_sentence_labels = features['next_sentence_labels']
-        else:
-            masked_lm_positions = features['masked_lm_positions']
-            masked_lm_ids = features['masked_lm_ids']
-            masked_lm_weights = features['masked_lm_weights']
+        # if mode != tf.estimator.ModeKeys.PREDICT:
+        #     # segment_idx = features['segment_dis']
+        #     masked_lm_positions = features['masked_lm_positions']   # [batch_size, seq_length], specify the answer
+        #     masked_lm_ids = features['masked_lm_ids']               # [batch_size, answer_seq_length], specify the answer labels
+        #     masked_lm_weights = features['masked_lm_weights']        # [batch_size, seq_length], [1, 1, 0], 0 refers to the mask
+        #     # next_sentence_labels = features['next_sentence_labels']
+        # else:
+        masked_lm_positions = features['masked_lm_positions']
+        masked_lm_ids = features['masked_lm_ids']
+        masked_lm_weights = features['masked_lm_weights']
 
+        if bert_config.train_type == 'seq2seq':
+            _info('Training seq2seq task.')
+        elif bert_config.train_type == 'lm':
+            _info('Training language model task.')
+  
         # build model
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
         model = BertModel(
@@ -85,9 +90,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                                                          mode)
   
         if mode == tf.estimator.ModeKeys.PREDICT:
-            _info(log_probs)
             masked_lm_predictions = tf.reshape(tf.argmax(log_probs, axis=-1, output_type=tf.int32), [-1])
-            _info(masked_lm_predictions)
             output_spec = tf.estimator.EstimatorSpec(mode, predictions=masked_lm_predictions)
         else:
             if mode == tf.estimator.ModeKeys.TRAIN:   
@@ -171,7 +174,7 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
         log_probs = tf.nn.log_softmax(logits, axis=-1)
 
         if mode == tf.estimator.ModeKeys.PREDICT:
-            return None, None, log_probs
+            return None, None, tf.nn.softmax(logits, axis=-1)
 
         # [some_length], no need to cast to tf.float32
         label_ids = tf.reshape(label_ids, [-1])
@@ -232,7 +235,8 @@ def main():
     input_fn = functools.partial(train_input_fn, 
                                  path=bert_config.data_path,
                                  batch_size=bert_config.batch_size,
-                                 repeat_num=bert_config.num_train_steps)
+                                 repeat_num=bert_config.num_train_steps,
+                                 train_type=bert_config.train_type)
 
     run_config = tf.contrib.tpu.RunConfig(
         keep_checkpoint_max=1,
@@ -251,10 +255,9 @@ def package_model(model_path, pb_path):
     estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
-    main()
+    # main()
 
     package_model('models/', 'models_to_deploy/')
-
 
     """the following code is just for test."""
     # import codecs
