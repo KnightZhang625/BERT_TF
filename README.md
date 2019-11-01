@@ -20,6 +20,10 @@ python pre_train.py
 >>Successfully restore pre-trained bert model, please create a directory which saves the pre-trained model,
 >>the directory of pre-trained model should not be the same as the model save path, and change the init_checkpoint in the config.py  
 
+>>Need to ameliorate:  
+>>>>When do predict, the maximum length should be identical to the training steps, need to fix this;  
+>>>>add <start>, <end> tag to the data;  
+
 - 30 Oct
 >>The model now could be run correctly.  
 >>add `run_predict.py` for prediction, however, due to the training process could see the answer,  
