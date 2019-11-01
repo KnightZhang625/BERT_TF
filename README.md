@@ -21,8 +21,8 @@ python pre_train.py
 >>the directory of pre-trained model should not be the same as the model save path, and change the init_checkpoint in the config.py  
 
 >>Need to ameliorate:  
->>>>When do predict, the maximum length should be identical to the training steps, need to fix this;  
->>>>add <start>, <end> tag to the data;  
+>>>>1.When do predict, the maximum length should be identical to the training steps, need to fix this;  
+>>>>2.add `start`, `end` tag to the data;  
 
 - 30 Oct
 >>The model now could be run correctly.  
