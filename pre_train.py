@@ -256,9 +256,9 @@ def package_model(model_path, pb_path):
     estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    package_model('models/', 'models_to_deploy/')
+    # package_model('models/', 'models_to_deploy/')
 
     """the following code is just for test."""
     # import codecs

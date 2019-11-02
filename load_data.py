@@ -18,17 +18,19 @@ from utils.log import log_error as _error
 
 __name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx', 'create_mask_for_lm']
 
-# with codecs.open('data/vocab.txt') as file:
-#     vocab_idx = {}
-#     idx_vocab = {}
-#     for idx, vocab in enumerate(file):
-#         vocab = vocab.strip()
-#         idx = int(idx)
-#         vocab_idx[vocab] = idx
-#         idx_vocab[idx] = vocab
+with codecs.open('data/vocab.txt') as file:
+    vocab_idx = {}
+    idx_vocab = {}
+    for idx, vocab in enumerate(file):
+        vocab = vocab.strip()
+        idx = int(idx)
+        vocab_idx[vocab] = idx
+        idx_vocab[idx] = vocab
 
 with codecs.open('data/vocab_idx.pt', 'rb') as file, \
      codecs.open('data/idx_vocab.pt', 'rb') as file_2:
+    # pickle.dump(vocab_idx, file, protocol=2)
+    # pickle.dump(idx_vocab, file_2, protocol=2)
     vocab_idx = pickle.load(file)
     idx_vocab = pickle.load(file_2)
 
@@ -54,7 +56,7 @@ def parse_data(path, train_type=None):
                 que, ans = convert_to_idx(line[0]), convert_to_idx(line[1])
                 # add start flag (<s>) and end flag (<\s>) to both question and answer
                 que = [vocab_idx['<s>']] + que + [vocab_idx['<\s>']]
-                ans = [vocab_idx['<s>']] + ans + [vocab_idx['<\s>']]
+                ans  = [vocab_idx['<s>']] + ans + [vocab_idx['<\s>']]
                 questions.append(que)
                 answers.append(ans)
         assert len(questions) == len(answers)
@@ -155,8 +157,8 @@ def train_generator(path, max_length, train_type=None):
             # print(input_ids)
             # print(input_mask)
             # print(masked_lm_positions)
-            # print(len(mask_lm_ids))
-            # print(len(mask_lm_weights))
+            # print(mask_lm_ids)
+            # print(mask_lm_weights)
             # input()
  
             features = {'input_ids': input_ids,
