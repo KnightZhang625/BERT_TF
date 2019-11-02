@@ -30,6 +30,8 @@ class bertPredict(object):
         
     def predict(self, input_ids, max_length):
         input_ids = convert_to_idx(input_ids)
+        input_ids = [self.vocab_idx['<s>']] + input_ids + [self.vocab_idx['<\s>']]
+    
         input_ids, input_mask, masked_lm_positions = self._process_input(input_ids, max_length)
 
         input_ids = np.array(input_ids, dtype=np.int32)
@@ -46,7 +48,7 @@ class bertPredict(object):
         assert len(input_ids) < max_length, _error('Input length is larger than the maximum length')
 
         question_length = len(input_ids)
-        input_ids += [0 for _ in range(max_length - question_length)]
+        input_ids += [vocab_idx['<mask>'] for _ in range(max_length - question_length)]
         # input_ids[2] = 330
         # input_ids[3] = 1470
         # input_ids[4] = 1048
@@ -71,7 +73,7 @@ class bertPredict(object):
 
 if __name__ == '__main__':
     bert = bertPredict('models_to_deploy', 'data/vocab.txt')
-    result = bert.predict('早上好', max_length=16)
+    result = bert.predict('难道不是吗', max_length=20)
     
     for idx in result['output']:
         if idx == bert.vocab_idx['<\s>']:
