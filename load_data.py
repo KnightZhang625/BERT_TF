@@ -117,7 +117,7 @@ def train_generator(path, max_length, train_type=None):
         for que, ans in zip(questions, answers):
             # 1. input_ids
             # use <mask> to represent the answer instead of the original 0
-            input_ids = que + [vocab_idx['<mask>'] for _ in range(len(ans))]
+            input_ids = que + [vocab_idx['<mask>'] for _ in range(len(ans))]    # que + ans(represented by <mask>)
             padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
             # input_ids -> [5, 2, 1, 10, 10, 10, 0, 0, 0, 0], where supposing 10 is <mask>, 0 is <padding>
             input_ids += padding_part   # [max_length]
@@ -128,17 +128,29 @@ def train_generator(path, max_length, train_type=None):
             input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
             input_mask = create_mask_for_seq(input_mask, len(que), len(ans + padding_part))
          
-            # masked_lm_positions saves the relative positions for answer part and padding part.
-            # [[2, 3, 4, 5, 6], [5, 6]]
-            masked_lm_positions = [idx + len(que) for idx in range(len(input_ids) - len(que))]
-            # ATTENTION: the above `masked_lm_positions` is not in the same length due to the various length of question,
-            # so padding the `masked_lm_positions` to the same length as input_ids,
-            # although the padding items are fake, the following `mask_lm_weights` will handle this.
-            masked_lm_positions += [masked_lm_positions[-1]  + 1 + idx  for idx in range(len(input_ids) - len(masked_lm_positions))]
+            # 3. masked_lm_positions saves the relative positions for answer part and padding part.
+            # no padding masked_lm_positions -> [[2, 3, 4, 5, 6, 7, 8, 9], [5, 6, 7, 8, 9]]
+            masked_lm_positions = [len(que) + idx for idx in range(max_length - len(que))]
+            # ATTENTION # the above `masked_lm_positions` of each data in a batch may not have the same length,
+            # # # # # # # due to the various length of question,
+            # # # # # # # so padding the `masked_lm_positions` to the same length as max_length is necessary,
+            # # # # # # # although the padding items are fake, the following `mask_lm_weights` will handle this.
+            # supposing the max_length equals to 10, the example no padding masked_lm_positions will look like
+            # the following after the next step:
+            # [[2, 3, 4, 5, 6, 7, 8, 9, 0, 0], [5, 6, 7, 8, 0, 0, 0, 0, 0, 0]]
+            # The reason for using `0` to pad here, During training, the `masked_lm_positions` wii add the `flat_offset`,
+            # the padding items do not exist, if add other numbers instead of 0, maybe cause index error.
+            masked_lm_positions += [0 for idx in range(max_length - len(masked_lm_positions))]
+
+            # 4. mask_lm_ids -> the actual labels
             mask_lm_ids = ans + padding_part
-            mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
+            # padding the `mask_lm_ids` to the max_length
+            mask_lm_ids += [vocab_idx['<padding>'] for _ in range(max_length - len(mask_lm_ids))]
+
+            # 5. mask_lm_weights -> for calculate the actual loss, which help to ignore the padding part
             mask_lm_weights = [1 for _ in range(len(ans))] + [0 for _ in range(len(padding_part))]
-            mask_lm_weights += [0 for _ in range(len(input_ids) - len(mask_lm_weights))]
+            # padding
+            mask_lm_weights += [0 for _ in range(max_length - len(mask_lm_weights))]
             
             # print(input_ids)
             # print(input_mask)
@@ -223,5 +235,5 @@ def serving_input_receiver_fn():
     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 
 if __name__ == '__main__':
-    for i in train_generator('data/train.data', 'seq2seq'):
+    for i in train_generator('data/train.data', max_length=20, train_type='seq2seq'):
         print(i)
