@@ -52,5 +52,6 @@ class BertConfig(NoNewAttrs):
         batch_size = 10
         num_train_steps = 100000
         train_type = 'seq2seq'
+        max_length = 30
 
 bert_config = BertConfig()

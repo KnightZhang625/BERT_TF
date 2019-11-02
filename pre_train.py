@@ -236,6 +236,7 @@ def main():
                                  path=bert_config.data_path,
                                  batch_size=bert_config.batch_size,
                                  repeat_num=bert_config.num_train_steps,
+                                 max_length = bert_config.max_length,
                                  train_type=bert_config.train_type)
 
     run_config = tf.contrib.tpu.RunConfig(
