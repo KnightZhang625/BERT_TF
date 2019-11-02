@@ -18,14 +18,14 @@ from utils.log import log_error as _error
 
 __name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx', 'create_mask_for_lm']
 
-with codecs.open('data/vocab.txt') as file:
-    vocab_idx = {}
-    idx_vocab = {}
-    for idx, vocab in enumerate(file):
-        vocab = vocab.strip()
-        idx = int(idx)
-        vocab_idx[vocab] = idx
-        idx_vocab[idx] = vocab
+# with codecs.open('data/vocab.txt') as file:
+#     vocab_idx = {}
+#     idx_vocab = {}
+#     for idx, vocab in enumerate(file):
+#         vocab = vocab.strip()
+#         idx = int(idx)
+#         vocab_idx[vocab] = idx
+#         idx_vocab[idx] = vocab
 
 with codecs.open('data/vocab_idx.pt', 'rb') as file, \
      codecs.open('data/idx_vocab.pt', 'rb') as file_2:
@@ -72,7 +72,7 @@ def parse_data(path, train_type=None):
             for line in file:
                 line = line.strip()
                 line = convert_to_idx(line)
-                line = [vocab_idx['<s>']] + line + [vocab_idx['\s']]
+                line = [vocab_idx['<s>']] + line + [vocab_idx['<\s>']]
                 sentences.append(line)
         # length = [len(line) for line in sentences]
         # max_length = max(length)
@@ -171,13 +171,14 @@ def train_generator(path, max_length, train_type=None):
     elif train_type == 'lm':
         sentences = parse_data(path, train_type)
         for line in sentences:
-            input_ids = line[0]
+            input_ids = [line[0]]
             padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
             input_ids += padding_part
             
             input_mask = create_mask_for_lm(max_length)
 
             masked_lm_positions = [idx + 1 for idx in range(max_length - 1)]
+            masked_lm_positions += [0 for _ in range(max_length - len(masked_lm_positions))]
             # masked_lm_positions += [masked_lm_positions[-1] + 1 + idx for idx in range(len(input_ids) - len(masked_lm_positions))]
             mask_lm_ids = line + [vocab_idx['<padding>'] for _ in range(max_length - len(line))]
             # mask_lm_ids += [vocab_idx['<padding>'] for _ in range(len(input_ids) - len(mask_lm_ids))]
