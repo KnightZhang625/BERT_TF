@@ -74,5 +74,7 @@ if __name__ == '__main__':
     result = bert.predict('早上好', max_length=16)
     
     for idx in result['output']:
+        if idx == bert.vocab_idx['<\s>']:
+            break
         print(bert.idx_vocab[idx])
     
