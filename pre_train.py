@@ -237,7 +237,8 @@ def main():
                                  batch_size=bert_config.batch_size,
                                  repeat_num=bert_config.num_train_steps,
                                  max_length = bert_config.max_length,
-                                 train_type=bert_config.train_type)
+                                 train_type=bert_config.train_type,
+                                 reverse=bert_config.reverse)
 
     run_config = tf.contrib.tpu.RunConfig(
         keep_checkpoint_max=1,
@@ -256,9 +257,9 @@ def package_model(model_path, pb_path):
     estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
-    main()
+    # main()
 
-    # package_model('models/', 'models_to_deploy/')
+    package_model('models/', 'models_to_deploy/')
 
     """the following code is just for test."""
     # import codecs

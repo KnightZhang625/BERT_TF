@@ -37,6 +37,10 @@ class bertPredict(object):
         input_mask = np.array(input_mask, dtype=np.int32)
         masked_lm_positions = np.array(masked_lm_positions, dtype=np.int32)
 
+        # print(input_ids)
+        # print(input_mask)
+        # print(masked_lm_positions)
+        # input()
         result = self.predict_fn(
             {'input_ids': input_ids,
              'input_mask': input_mask,
@@ -72,21 +76,21 @@ class bertPredict(object):
 
 if __name__ == '__main__':
     bert = bertPredict('models_to_deploy')
-    test_tensence = '[CLS] 你 好 [SEP]'
+    test_tensence = '<s> 你 好 <\s>'
     result = bert.predict(test_tensence, max_length=30)
 
-    c = 0
-    while (result['output'][c] != bert.vocab_idx['[SEP]']) and (c <= 30):
-        test_tensence = test_tensence + ' ' + idx_vocab[result['output'][0]]
-        print(result)
+    # c = 0
+    # while (result['output'][c] != bert.vocab_idx['[SEP]']) and (c <= 30):
+    #     test_tensence = test_tensence + ' ' + idx_vocab[result['output'][0]]
+    #     print(result)
 
-        result = bert.predict(test_tensence, max_length=30)
-        c += 1
-        print(test_tensence)
+    #     result = bert.predict(test_tensence, max_length=30)
+    #     c += 1
+    #     print(test_tensence)
 
-    result = bert.predict(test_tensence, max_length=30)
+    # result = bert.predict(test_tensence, max_length=30)
     for idx in result['output']:
-        if idx == bert.vocab_idx['[SEP]']:
+        if idx == bert.vocab_idx['<\s>']:
             break
         else:
             print(bert.idx_vocab[idx])

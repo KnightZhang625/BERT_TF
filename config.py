@@ -27,7 +27,7 @@ class NoNewAttrs(object):
 
 class BertConfig(NoNewAttrs):
         # train
-        learning_rate = 1e-4
+        learning_rate = 1e-5
 
         # model
         vocab_size = 21128
@@ -53,5 +53,6 @@ class BertConfig(NoNewAttrs):
         num_train_steps = 100000
         train_type = 'seq2seq'
         max_length = 30
+        reverse = False
 
 bert_config = BertConfig()
