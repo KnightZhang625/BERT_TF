@@ -16,6 +16,9 @@ python pre_train.py
 ```
 
 ## Log  
+- 04 Nov  
+>>Revise the `load_data.py`, enhance the capability of generation.  
+
 - 01 Nov  
 >>Successfully restore pre-trained bert model, please create a directory which saves the pre-trained model,
 >>the directory of pre-trained model should not be the same as the model save path, and change the init_checkpoint in the config.py  
