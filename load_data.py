@@ -18,14 +18,14 @@ from utils.log import log_error as _error
 
 __name__ == ['train_input_fn', 'serving_input_receiver_fn', 'convert_to_idx', 'create_mask_for_lm']
 
-with codecs.open('data/vocab.txt') as file:
-    vocab_idx = {}
-    idx_vocab = {}
-    for idx, vocab in enumerate(file):
-        vocab = vocab.strip()
-        idx = int(idx)
-        vocab_idx[vocab] = idx
-        idx_vocab[idx] = vocab
+# with codecs.open('data/vocab.txt') as file:
+#     vocab_idx = {}
+#     idx_vocab = {}
+#     for idx, vocab in enumerate(file):
+#         vocab = vocab.strip()
+#         idx = int(idx)
+#         vocab_idx[vocab] = idx
+#         idx_vocab[idx] = vocab
 
 with codecs.open('data/vocab_idx.pt', 'rb') as file, \
      codecs.open('data/idx_vocab.pt', 'rb') as file_2:
@@ -37,17 +37,17 @@ with codecs.open('data/vocab_idx.pt', 'rb') as file, \
 def convert_to_idx(line):
     """convert the vocab to idx."""
     result = []
-    for vocab in line:
+    for vocab in line.split(' '):
         try:
             result.append(vocab_idx[vocab])
         except KeyError:
-            result.append(vocab_idx['[UNK]'])
+            result.append(vocab_idx['<unk>'])
     
     return result
 
 def parse_data(path, train_type=None):
     """process the data."""
-    if train_type == 'seq2seq':
+    if train_type == 'seq2seq' or train_type == 'bi':
         with codecs.open(path, 'r', 'utf-8') as file:
             questions = []
             answers = []
@@ -55,8 +55,8 @@ def parse_data(path, train_type=None):
                 line = line.strip().split('=')
                 que, ans = convert_to_idx(line[0]), convert_to_idx(line[1])
                 # add start flag (<s>) and end flag (<\s>) to both question and answer
-                que = [vocab_idx['<s>']] + que + [vocab_idx['<\s>']]
-                ans  = [vocab_idx['<s>']] + ans + [vocab_idx['<\s>']]
+                # que = que
+                # ans  = ans + [vocab_idx['<\s>']]
                 questions.append(que)
                 answers.append(ans)
         assert len(questions) == len(answers)
@@ -111,15 +111,25 @@ def create_mask_for_lm(length):
         mask.append(row_mask)
     
     return np.array(mask)
+
+def create_mask_for_bi(length):
+    """create mask for UniLM Bidirectional LM task."""
+    mask = []
+    for row in range(length):
+        row_mask = [1 for _ in range(length)]
+        mask.append(row_mask)
+
+    return np.array(mask)
     
 def train_generator(path, max_length, train_type=None):
     """"This is the entrance to the input_fn."""
-    if train_type == 'seq2seq':
+    if train_type == 'seq2seq' or train_type == 'bi':
         questions, answers, max_length = parse_data(path, train_type)
         for que, ans in zip(questions, answers):
             # 1. input_ids
             # use <mask> to represent the answer instead of the original 0
-            input_ids = que + [vocab_idx['<mask>'] for _ in range(len(ans))]    # que + ans(represented by <mask>)
+            # input_ids = que + [vocab_idx['<mask>'] for _ in range(len(ans))]    # que + ans(represented by <mask>)
+            input_ids = que + ans
             padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
             # input_ids -> [5, 2, 1, 10, 10, 10, 0, 0, 0, 0], where supposing 10 is <mask>, 0 is <padding>
             input_ids += padding_part   # [max_length]
@@ -127,8 +137,11 @@ def train_generator(path, max_length, train_type=None):
             # 2. mask for attention scores
             # original input_mask in paper -> [1, 1, 1, 0, 0], however, use another mask here
             # where 1 indicates the question part, 0 indicates both the answer part and padding part.
-            input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
-            input_mask = create_mask_for_seq(input_mask, len(que), len(ans + padding_part))
+            if train_type == 'seq2seq':
+                input_mask = [1 for _ in range(len(que))] + [0 for _ in range(len(ans + padding_part))]
+                input_mask = create_mask_for_seq(input_mask, len(que), len(ans + padding_part))
+            else:
+                input_mask = create_mask_for_bi(max_length)
          
             # 3. masked_lm_positions saves the relative positions for answer part and padding part.
             # no padding masked_lm_positions -> [[2, 3, 4, 5, 6, 7, 8, 9], [5, 6, 7, 8, 9]]
@@ -170,7 +183,7 @@ def train_generator(path, max_length, train_type=None):
     elif train_type == 'lm':
         sentences, max_length = parse_data(path, train_type)
         for line in sentences:
-            input_ids = [vocab_idx['S']]
+            input_ids = [vocab_idx['<s>']]
             padding_part = [vocab_idx['<padding>'] for _ in range(max_length - len(input_ids))]
             input_ids += padding_part
             

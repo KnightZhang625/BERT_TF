@@ -20,7 +20,7 @@ with codecs.open('data/vocab_idx.pt', 'rb') as file, \
     idx_vocab = pickle.load(file_2)
 
 class bertPredict(object):
-    def __init__(self, pb_path, vocab_path):
+    def __init__(self, pb_path):
         subdirs = [x for x in Path(pb_path).iterdir()
                    if x.is_dir() and 'temp' not in str(x)]
         latest = str(sorted(subdirs)[-1])
@@ -30,7 +30,6 @@ class bertPredict(object):
         
     def predict(self, input_ids, max_length):
         input_ids = convert_to_idx(input_ids)
-        input_ids = [self.vocab_idx['<s>']] + input_ids + [self.vocab_idx['<\s>']]
     
         input_ids, input_mask, masked_lm_positions = self._process_input(input_ids, max_length)
 
@@ -72,9 +71,9 @@ class bertPredict(object):
     #     return vocab_idx, idx_vocab
 
 if __name__ == '__main__':
-    bert = bertPredict('models_to_deploy', 'data/vocab.txt')
-    result = bert.predict('难道不是吗', max_length=20)
-    
+    bert = bertPredict('models_to_deploy')
+    result = bert.predict('<s> 早 上 好 <\s>', max_length=30)
+
     for idx in result['output']:
         if idx == bert.vocab_idx['<\s>']:
             break
