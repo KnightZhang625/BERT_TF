@@ -49,10 +49,10 @@ class BertConfig(NoNewAttrs):
         data_path = 'data/train.data'
         model_dir = 'models/'
         init_checkpoint = 'pretrained_model/albert_model.ckpt'
-        batch_size = 10
+        batch_size = 5
         num_train_steps = 100000
         train_type = 'seq2seq'
-        max_length = 30
+        max_length = 20
         reverse = False
 
 bert_config = BertConfig()

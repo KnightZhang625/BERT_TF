@@ -12,7 +12,7 @@ PROJECT_PATH = Path(__file__).absolute().parent
 sys.path.insert(0, str(PROJECT_PATH))
 
 from utils.log import log_error as _error
-from load_data import convert_to_idx, create_mask_for_lm, create_mask_for_seq
+from load_data import convert_to_idx, create_mask_for_lm, create_mask_for_seq, create_mask_for_bi
 
 with codecs.open('data/vocab_idx.pt', 'rb') as file, \
      codecs.open('data/idx_vocab.pt', 'rb') as file_2:
@@ -37,10 +37,13 @@ class bertPredict(object):
         input_mask = np.array(input_mask, dtype=np.int32)
         masked_lm_positions = np.array(masked_lm_positions, dtype=np.int32)
 
-        # print(input_ids)
-        # print(input_mask)
-        # print(masked_lm_positions)
-        # input()
+        # input_ids[0][5] = 872
+        # input_ids[0][6] = 1962
+        # input_ids[0][7] = 1557
+        # input_ids[0][8] = 511
+        # input_ids[0][9] = 2
+
+        # [872, 1962, 1557, 511, 2]
         result = self.predict_fn(
             {'input_ids': input_ids,
              'input_mask': input_mask,
@@ -58,6 +61,12 @@ class bertPredict(object):
         # input_ids[5] = 116
         input_mask = [1 for _ in range(question_length)] + [0 for _ in range(max_length - question_length)]
         input_mask = create_mask_for_seq(input_mask, question_length, max_length - question_length)
+
+        # input_mask = []
+        # for _ in range(max_length):
+        #     temp = [1 for _ in range(question_length)] + [0 for _ in range(max_length - question_length)]
+        #     input_mask.append(temp)
+
         masked_lm_positions = [question_length + idx for idx in range(max_length - question_length)]
 
         return [input_ids], [input_mask], [masked_lm_positions]
@@ -77,18 +86,24 @@ class bertPredict(object):
 if __name__ == '__main__':
     bert = bertPredict('models_to_deploy')
     test_tensence = '<s> 你 好 <\s>'
-    result = bert.predict(test_tensence, max_length=30)
-
+    # print(result['output'])
+    # # print(bert.vocab_idx['<\s>'])
     # c = 0
-    # while (result['output'][c] != bert.vocab_idx['[SEP]']) and (c <= 30):
+    # while c < 19:
+    #     result = bert.predict(test_tensence, max_length=20)
+    #     idx = result['output'][0]
     #     test_tensence = test_tensence + ' ' + idx_vocab[result['output'][0]]
-    #     print(result)
-
-    #     result = bert.predict(test_tensence, max_length=30)
-    #     c += 1
     #     print(test_tensence)
+    #     print(idx_vocab[idx])
+    #     if idx == vocab_idx['<\s>']:
+    #         break
+    #     c +=1
 
-    # result = bert.predict(test_tensence, max_length=30)
+    #     # result = bert.predict(test_tensence, max_length=20)
+    #     # c += 1
+    #     # print(test_tensence)
+
+    result = bert.predict(test_tensence, max_length=20)
     for idx in result['output']:
         if idx == bert.vocab_idx['<\s>']:
             break

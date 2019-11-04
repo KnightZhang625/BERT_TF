@@ -125,7 +125,7 @@ def create_mask_for_bi(length):
 
     return np.array(mask)
 
-def generate_mask(train_type, train_ids, percentage=0.20, offset_number=0, reset=False):
+def generate_mask(train_type, train_ids, percentage=0.50, offset_number=0, reset=False):
     if reset:
         for idx in range(len(train_ids)):
             train_ids[idx] = vocab_idx['<mask>']
@@ -138,7 +138,7 @@ def generate_mask(train_type, train_ids, percentage=0.20, offset_number=0, reset
         mask_number = num if num != 0 else 2
         mask_postions = [-1]
 
-        temp_number = -1
+        temp_number = -1 - offset_number
         for _ in range(mask_number):
             while (temp_number + offset_number) in mask_postions:
                 temp_number = random.randint(0, len(train_ids)-1)
@@ -150,7 +150,7 @@ def generate_mask(train_type, train_ids, percentage=0.20, offset_number=0, reset
 def train_generator(path, max_length, train_type=None, reverse=False):
     """"This is the entrance to the input_fn."""
     if train_type == 'seq2seq' or train_type == 'bi':
-        questions, answers, max_length = parse_data(path, train_type)
+        questions, answers, _ = parse_data(path, train_type)
         for que, ans in zip(questions, answers):
             # 1. input_ids
             # use <mask> to represent the answer instead of the original 0
@@ -208,13 +208,13 @@ def train_generator(path, max_length, train_type=None, reverse=False):
             mask_lm_weights = [1 for _ in range(len(masked_lm_positions_copy))] + [0 for _ in range(max_length - len(masked_lm_positions_copy))]
             # padding
             # mask_lm_weights += [0 for _ in range(max_length - len(mask_lm_weights))]
-            
-            print(len(input_ids))
-            print(len(input_mask))
-            print(len(masked_lm_positions))
-            print(len(mask_lm_ids))
-            print(len(mask_lm_weights))
-            input()
+
+            # print(len(input_ids))
+            # print(len(input_mask))
+            # print(len(masked_lm_positions))
+            # print(len(mask_lm_ids))
+            # print(len(mask_lm_weights))
+            # input()
  
             features = {'input_ids': input_ids,
                         'input_mask': input_mask,
@@ -287,5 +287,5 @@ def serving_input_receiver_fn():
     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 
 if __name__ == '__main__':
-    for i in train_generator('data/train.data', max_length=20, train_type='seq2seq'):
+    for i in train_generator('data/train.data', max_length=30, train_type='seq2seq'):
         print(i)
