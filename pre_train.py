@@ -80,14 +80,14 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
             input_mask=input_mask)
         
         # compute loss
-        loss, pre_loss, log_probs = get_masked_lm_output(bert_config,
-                                                         model.get_sequence_output(),
-                                                         model.embedding_table,
-                                                         model.projection_table,
-                                                         masked_lm_positions,
-                                                         masked_lm_ids,
-                                                         masked_lm_weights,
-                                                         mode)
+        loss, per_loss, log_probs, logits = get_masked_lm_output(bert_config,
+                                                                 model.get_sequence_output(),
+                                                                 model.embedding_table,
+                                                                 model.projection_table,
+                                                                 masked_lm_positions,
+                                                                 masked_lm_ids,
+                                                                 masked_lm_weights,
+                                                                 mode)
   
         if mode == tf.estimator.ModeKeys.PREDICT:
             masked_lm_predictions = tf.reshape(tf.argmax(log_probs, axis=-1, output_type=tf.int32), [-1])
@@ -125,9 +125,28 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                 # train_op = optimizer.apply_gradients(zip(clipped_gradients, tvars), global_step=tf.train.get_global_step())
                 output_spec = tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
             elif mode == tf.estimator.ModeKeys.EVAL:
-                # TODO define the metrics
-                _error('to do ...')
-                raise NotImplementedError
+                is_real_example = tf.ones(tf.shape(masked_lm_ids), dtype=tf.float32)
+                
+                def metric_fn(loss, label_ids, logits, is_real_example):
+                    """
+                    Args:
+                        loss: tf.float32.
+                        label_ids: [b, s].
+                        logits: [b, s, v].
+                    """
+                    # [b * s, v]
+                    logits = tf.reshape(logits, [-1, logits.shape[-1]])
+                    # [b * s, 1]
+                    predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+                    # [b * s]
+                    label_ids = tf.reshape(label_ids, [-1])
+                    accuracy = tf.metrics.accuracy(
+                        labels=label_ids, predictions=predictions)
+                    loss = tf.metrics.mean(values=loss)
+                    return {'eval_accuracy': accuracy, 'eval_loss': loss}
+                    
+                eval_metrics = metric_fn(loss, masked_lm_ids, logits, is_real_example)
+                output_spec = tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metrics)
 
         return output_spec
     
@@ -191,7 +210,7 @@ def get_masked_lm_output(bert_config, input_tensor, embedding_table, projection_
         denominator = tf.reduce_sum(label_weights) + 1e-5
         loss = numerator / denominator
     
-    return loss, per_loss, log_probs
+    return loss, per_loss, log_probs, logits
 
 def gather_indexes(input_tensor, positions):
     """Gather all the predicted tensor, input_tensor contains all the positions,
@@ -242,10 +261,17 @@ def main():
 
     run_config = tf.contrib.tpu.RunConfig(
         keep_checkpoint_max=1,
-        save_checkpoints_steps=100,
+        save_checkpoints_steps=1000,
         model_dir=bert_config.model_dir)
     estimator = tf.estimator.Estimator(model_fn, config=run_config)
-    estimator.train(input_fn, steps=bert_config.num_train_steps)
+    estimator.train(input_fn)
+
+    # train_spec = tf.estimator.TrainSpec(input_fn=input_fn)
+    # eval_spec = tf.estimator.EvalSpec(input_fn=input_fn, steps=1000)
+    # tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+
+    # for evaluation, the repeat_num in input_fn has to be reset
+    # estimator.evaluate(input_fn)
 
 def package_model(model_path, pb_path):
     model_fn = model_fn_builder(
@@ -257,9 +283,9 @@ def package_model(model_path, pb_path):
     estimator.export_saved_model(pb_path, serving_input_receiver_fn)
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    package_model('models/', 'models_to_deploy/')
+    # package_model('models/', 'models_to_deploy/')
 
     """the following code is just for test."""
     # import codecs
