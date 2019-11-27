@@ -32,14 +32,14 @@ class BertConfig(NoNewAttrs):
 
         # model
         vocab_size = 10509
-        embedding_size = 128
-        hidden_size = 128
+        embedding_size = 512
+        hidden_size = 512
         max_positional_embeddings = 30
         token_type_vocab_size = 0
         pre_positional_embedding_type = 'normal'
         hidden_dropout_prob = 0.0
         attention_probs_dropout_prob = 0.1 
-        num_hidden_layers = int(2)
+        num_hidden_layers = int(4)
         num_attention_heads = int(4)
         intermediate_size = 128
 
