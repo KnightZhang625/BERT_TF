@@ -22,7 +22,7 @@ import re
 import tensorflow as tf
 
 
-def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps=None, use_tpu=False):
+def create_optimizer(loss, init_lr, num_train_steps, lr_limit, num_warmup_steps=None, use_tpu=False):
     """Creates an optimizer training op."""
     global_step = tf.train.get_or_create_global_step()
 
@@ -33,7 +33,7 @@ def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps=None, use_
         learning_rate,
         global_step,
         num_train_steps,
-        end_learning_rate=0.0,
+        end_learning_rate=lr_limit,
         power=1.0,
         cycle=False)
 
@@ -81,7 +81,7 @@ def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps=None, use_
     # a different optimizer, you should probably take this line out.
     new_global_step = global_step + 1
     train_op = tf.group(train_op, [global_step.assign(new_global_step)])
-    return train_op
+    return train_op, learning_rate
 
 
 class AdamWeightDecayOptimizer(tf.train.Optimizer):
