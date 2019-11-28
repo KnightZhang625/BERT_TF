@@ -61,7 +61,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                                 [-1, bert_config.max_length * bert_config.hidden_size])
         
         with tf.variable_scope('prediction'):
-            logits = tf.layers.dense(sequence_output, 
+            logits  = tf.layers.dense(sequence_output, 
                                   bert_config.classes,
                                   name='prediction',
                                   kernel_initializer=_mh.create_initializer(0.2))
@@ -74,8 +74,11 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                 output_spec = tf.estimator.EstimatorSpec(mode, predictions=predictions)
             else:
                 if mode == tf.estimator.ModeKeys.TRAIN:
-                    batch_size = tf.cast(bert_config.batch_size, tf.float32)
-                    logits = tf.expand_dims(logits, axis=1)
+                    batch_size = tf.cast(bert_config.batch_size, tf.float32) 
+
+                    labels = tf.reshape(labels, [-1])
+    
+                    # logits = tf.expand_dims(logits, axis=1)
                     seq_loss = tf.reduce_sum(
                             tf.nn.sparse_softmax_cross_entropy_with_logits(
                                 labels=labels, logits=logits)) / batch_size

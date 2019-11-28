@@ -23,11 +23,11 @@ with codecs.open('data/vocab_idx_new.pt', 'rb') as file, \
     vocab_idx = pickle.load(file)
     idx_vocab = pickle.load(file_2)
 
-CCHAR_RATE = 0.80
+CCHAR_RATE = 0.50
 RCHAR_RATE = 0.80
 RWORD_RATE = 0.25
 RPART_RATE = 0.25
-CPART_RATE = 0.20
+CPART_RATE = 0.50
 types_and_probs = {'change_char': 0.5, 'reorder_char': 0.25, 'reorder_word': 0.0, 'repeat_part': 0.0, 'clip_part': 0.25}
 def aug_text(text, prob, types_and_probs):
     '''
@@ -52,14 +52,19 @@ def aug_text(text, prob, types_and_probs):
         tp_choice = np.random.choice(['change_char', 'reorder_char', 'reorder_word', 'repeat_part', 'clip_part'], 1, p=tp_values)[0]
         tlen = len(text)
         if (tp_choice == 'change_char'):
-            vcount = int((tlen-2) * CCHAR_RATE)
+            vcount = int((tlen) * CCHAR_RATE)
             if (vcount > 0):
-                vids = np.random.randint(1, tlen-1, [vcount])
+                try:
+                    vids = np.random.randint(1, tlen-1, [vcount])
+                except ValueError:
+                    _error(text)
+                    _error(vcount)
+                    raise ValueError
                 vnew_chars = np.random.randint(21, 7818, [vcount])
                 for i in range(vcount):
                     text[vids[i]] = str(vnew_chars[i])
         elif (tp_choice == 'reorder_char'):
-            vcount = int((tlen-2) * RCHAR_RATE)
+            vcount = int((tlen) * RCHAR_RATE)
             if (vcount > 0):
                 vids = np.random.randint(1, tlen-1, [vcount])
                 for i in range(vcount):
@@ -74,7 +79,7 @@ def aug_text(text, prob, types_and_probs):
                     text = text[:start] + text[start:end] * 2 + text[end:]
         elif (tp_choice == 'clip_part'):
             if (tlen > 3 * 2):
-                vcount = int((tlen-2) * CPART_RATE)
+                vcount = int((tlen) * CPART_RATE)
                 if (vcount > 0):
                     text = text[vcount:] if (np.random.randint(1, 3) == 1) else text[:tlen - vcount]
         return ''.join(text)
@@ -101,12 +106,23 @@ def padding(line, max_length):
         line += 'p' * (max_length - len(line))
     return line
 
+def reorder(line):
+    line_list = [v for v in line]
+    if len(line_list) <= 3:
+        return ''.join([random.choice(line_list) for _ in range(len(line_list))])
+    else:
+        change_numbers = int(0.5 * len(line_list))
+        chars_ids = [random.choice(range(100, 10000)) for _ in range(change_numbers)]
+        for idx in range(len(chars_ids)):
+            line_list[idx + 1] = idx_vocab[chars_ids[idx]]
+        return ''.join(line_list)
+
 def train_generator(path, max_length):
     with codecs.open(path, 'r', 'utf-8') as file:
         for line in file:
             # read data
             line = line.strip()
-            
+
             # whether reorder
             reorder_or_not = random.choice([0, 1])
 
@@ -116,7 +132,7 @@ def train_generator(path, max_length):
                 data = convert_to_idx(line)
                 label = int(1)
             elif reorder_or_not == 0:
-                line = aug_text([v for v in line], 1, types_and_probs)
+                line = reorder(line)
                 line = padding(line, max_length)
                 data = convert_to_idx(line)
                 label = int(0)
