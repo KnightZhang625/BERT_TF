@@ -47,7 +47,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
             tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
         input_ids = features['input_ids']       # [batch_size, seq_length]
-        
+
         # build model
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
         model = BertModel(

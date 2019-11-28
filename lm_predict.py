@@ -44,6 +44,9 @@ class NmtPredict(object):
 
                 for sentence in func(args[1]):
                     original_sentence = sentence
+                    # original_length = len(original_sentence.strip())
+                    # input_mask = [1 for _ in range(original_length)] + [0 for _ in range(bert_config.max_length - original_length)]
+
                     sentence = padding(sentence.strip(), bert_config.max_length)
                     input_ids = convert_to_idx(sentence)
 

@@ -103,11 +103,11 @@ class BertModel(object):
                     max_positional_embeddings=config.max_positional_embeddings,
                     dropout_prob=config.hidden_dropout_prob)
                 """
-                
+
             # Encoder
             with tf.variable_scope('encoder'):
                 # obtain the mask
-                # ATTENTION: do not use the original mask method, see more in the comments below this class.
+                # ATTENTION: do not use the original mask method, see more in the comments below this class. (not for this lm task)
                 # attention_mask = _mh.create_attention_mask_from_input_mask(input_ids, input_mask)
                 attention_mask = input_mask
 
