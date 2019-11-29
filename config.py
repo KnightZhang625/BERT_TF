@@ -31,20 +31,20 @@ class BertConfig(NoNewAttrs):
         lr_limit = 1e-2
 
         # model
-        vocab_size = 10509
-        embedding_size = 30
-        hidden_size = 30
-        max_positional_embeddings = 30
+        vocab_size = 21128
+        embedding_size = 128
+        hidden_size = 768
+        max_positional_embeddings = 512
         token_type_vocab_size = 0
         pre_positional_embedding_type = 'normal'
         hidden_dropout_prob = 0.0
         attention_probs_dropout_prob = 0.1 
-        num_hidden_layers = int(2)
-        num_attention_heads = int(2)
-        intermediate_size = 30
+        num_hidden_layers = int(12)
+        num_attention_heads = int(12)
+        intermediate_size = 3072
 
         # initializer
-        initializer_range = 0.002
+        initializer_range = 0.02
 
         # global
         data_path = 'data/lm_data/sample.data'

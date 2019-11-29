@@ -111,7 +111,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                     _info('name = {}, shape={}{}'.format(var.name, var.shape, init_string))
                 
                 train_op = optimization.create_optimizer(
-                    loss, bert_config.learning_rate, num_train_steps)
+                    loss, bert_config.learning_rate, num_train_steps, bert_config.lr_limit)
 
                 # learning_rate = tf.train.polynomial_decay(bert_config.learning_rate,
                 #                                         tf.train.get_or_create_global_step(),
@@ -276,7 +276,7 @@ def main():
 def package_model(model_path, pb_path):
     model_fn = model_fn_builder(
         bert_config=bert_config,
-        init_checkpoint=bert_config.init_checkpoint,
+        init_checkpoint=None,
         learning_rate=bert_config.learning_rate,
         num_train_steps=bert_config.num_train_steps)
     estimator = tf.estimator.Estimator(model_fn, model_path)

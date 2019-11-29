@@ -74,6 +74,20 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                 output_spec = tf.estimator.EstimatorSpec(mode, predictions=predictions)
             else:
                 if mode == tf.estimator.ModeKeys.TRAIN:
+                    tvars = tf.trainable_variables()
+                    initialized_variable_names = {}
+                    if init_checkpoint:
+                        (assignment_map, initialized_variable_names) = get_assignment_map_from_checkpoint(tvars, init_checkpoint)
+                        tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+
+                    _info('*** Trainable Variables ***')
+                    for var in tvars:
+                        init_string = ''
+                        if var.name in initialized_variable_names:
+                            init_string = ', *INIT_FROM_CKPT*'
+                        _info('name = {}, shape={}{}'.format(var.name, var.shape, init_string))
+
+
                     batch_size = tf.cast(bert_config.batch_size, tf.float32) 
 
                     labels = tf.reshape(labels, [-1])
@@ -128,7 +142,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
 def main():
     Path(bert_config.model_dir).mkdir(exist_ok=True)
 
-    model_fn = model_fn_builder(bert_config, None, bert_config.learning_rate, bert_config.num_train_steps)
+    model_fn = model_fn_builder(bert_config, bert_config.init_checkpoint, bert_config.learning_rate, bert_config.num_train_steps)
 
     input_fn = functools.partial(train_input_fn, 
                                 path=bert_config.data_path,

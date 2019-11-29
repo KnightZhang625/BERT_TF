@@ -19,8 +19,8 @@ from reorder_sentence import reorder
 from utils.log import log_info as _info
 from utils.log import log_error as _error
 
-with codecs.open('data/vocab_idx_new.pt', 'rb') as file, \
-     codecs.open('data/idx_vocab_new.pt', 'rb') as file_2:
+with codecs.open('data/vocab_idx.pt', 'rb') as file, \
+     codecs.open('data/idx_vocab.pt', 'rb') as file_2:
     vocab_idx = pickle.load(file)
     idx_vocab = pickle.load(file_2)
 
