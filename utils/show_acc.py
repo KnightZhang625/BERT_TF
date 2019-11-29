@@ -41,7 +41,7 @@ def draw_new_loss():
             elif (l[0].strip() == 'dis_avg'):
                 _dis_losses.append(float(l[1].strip()))
             elif (l[0].strip() == 'sup_avg'):
-                if c == 10:
+                if c == 15:
                     _sup_losses.append(float(l[1].strip()))
                     c = 0
                 else:
