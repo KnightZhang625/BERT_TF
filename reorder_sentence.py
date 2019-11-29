@@ -27,7 +27,7 @@ def preprocess(func):
         length = len(line_copy)
 
         if ratio is None:
-            ratio = random.choice([0.5, 0.6, 0.7])
+            ratio = random.choice([0.6, 0.8, 0.9])
         length_change = int(length * ratio)
 
         # choose change or remove index
@@ -71,7 +71,13 @@ def cut_line(line_copy, index_candidates):
     length = len(line_copy)
     return [line_copy[index] for index in range(length) if index not in index_candidates]
 
-def reorder(sentence):
+@preprocess
+def increase_line(line_copy, index_candidates):
+    """"Increase the line."""
+    line_copy += [line_copy[idx] for idx in index_candidates]
+    return line_copy
+
+def reorder(sentence, tag=None):
     """This function is used for reordering the sentence.
     
     Args:
@@ -85,12 +91,20 @@ def reorder(sentence):
 
     # for length less than or equal to 3, reorder most of the sentence
     if length <= 3:
-        new_line = replace_char(line)
+        new_line = increase_line(line)
     else:
-        func = random.choice([replace_char, cut_line])
-        new_line = func(line)
+        if tag is None:
+            func = random.choice([replace_char, cut_line, increase_line])
+            new_line = func(line)
+        else:
+            if tag == 1:
+                new_line = replace_char(line)
+            elif tag == 2:
+                new_line = cut_line(line)
+            elif tag == 3:
+                new_line = increase_line(line)
     
     return ''.join(new_line)
 
 if __name__ == '__main__':
-    print(reorder('我不知道啊'))
+    print(reorder('是王若猫的', 3))

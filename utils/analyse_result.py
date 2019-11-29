@@ -13,7 +13,7 @@ def analyse(postive_result, negative_result):
 
     with codecs.open(postive_result, 'r', 'utf-8') as file:
         for line in file:
-            tag = line.split(' ')[1].strip()
+            tag = line.split('\t')[1].strip()
             if tag == '1':
                 true_positive += 1
             else:
@@ -21,7 +21,7 @@ def analyse(postive_result, negative_result):
     
     with codecs.open(negative_result, 'r', 'utf-8') as file:
         for line in file:
-            tag = line.split(' ')[1].strip()
+            tag = line.split('\t')[1].strip()
             if tag == '0':
                 true_negative += 1
             else:
@@ -36,4 +36,4 @@ def analyse(postive_result, negative_result):
         true_positive, false_positive, false_negative, true_negative, precision, recall, f1_score))
 
 if __name__ == '__main__':
-    analyse('positive', 'negative')
+    analyse('../data/test_data/positive_result', '../data/test_data/negative_result')
