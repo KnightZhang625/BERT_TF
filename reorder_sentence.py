@@ -77,6 +77,16 @@ def increase_line(line_copy, index_candidates):
     line_copy += [line_copy[idx] for idx in index_candidates]
     return line_copy
 
+@preprocess
+def add_part(line_copy, index_candidates):
+    offset = 0
+    for idx in index_candidates:
+        temp_vocab = line_copy[idx]
+        for _ in range(2):
+            line_copy.insert(idx + offset, temp_vocab)
+        offset += 2
+    return line_copy
+
 def reorder(sentence, tag=None):
     """This function is used for reordering the sentence.
     
@@ -94,7 +104,7 @@ def reorder(sentence, tag=None):
         new_line = increase_line(line)
     else:
         if tag is None:
-            func = random.choice([replace_char, cut_line, increase_line])
+            func = random.choice([replace_char, cut_line, increase_line, add_part])
             new_line = func(line)
         else:
             if tag == 1:
@@ -103,8 +113,10 @@ def reorder(sentence, tag=None):
                 new_line = cut_line(line)
             elif tag == 3:
                 new_line = increase_line(line)
+            elif tag == 4:
+                new_line = add_part(line)
     
     return ''.join(new_line)
 
 if __name__ == '__main__':
-    print(reorder('是王若猫的', 3))
+    print(reorder('是王若猫的', 4))

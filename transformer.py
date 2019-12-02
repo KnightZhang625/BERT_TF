@@ -90,7 +90,7 @@ def tranformer_model(input_tensor,
         if share_parameter_across_layers:
             name_variable_scope = 'layer_shared'
         else:
-            name_variable_scope = 'layer_{}'.format*layer_idx
+            name_variable_scope = 'layer_{}'.format(layer_idx)
         
         # share the parameter across layers when share_parameter_across_layers us True and not the first layer
         with tf.variable_scope(name_variable_scope, reuse=True if (share_parameter_across_layers and layer_idx > 0) else False):
