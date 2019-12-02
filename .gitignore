@@ -112,6 +112,7 @@ models_to_deploy/
 pretrained_model
 models_lm/
 models_deploy_lm/
+models_*
 
 cnn_config.py
 cnn_train.py
