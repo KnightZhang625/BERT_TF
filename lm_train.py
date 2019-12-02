@@ -142,7 +142,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
 def main():
     Path(bert_config.model_dir).mkdir(exist_ok=True)
 
-    model_fn = model_fn_builder(bert_config, bert_config.init_checkpoint, bert_config.learning_rate, bert_config.num_train_steps)
+    model_fn = model_fn_builder(bert_config, None, bert_config.learning_rate, bert_config.num_train_steps)
 
     input_fn = functools.partial(train_input_fn, 
                                 path=bert_config.data_path,

@@ -112,3 +112,7 @@ models_to_deploy/
 pretrained_model
 models_lm/
 models_deploy_lm/
+
+cnn_config.py
+cnn_train.py
+model_new.py

@@ -82,7 +82,7 @@ class NmtPredict(object):
         return idx_to_str(sample_id)
     
     @staticmethod
-    def write_result(result, threshold, path=PROJECT_PATH / 'data/lm_data/prediction_for_clean.data'):
+    def write_result(result, threshold, path=PROJECT_PATH / 'data/test_data/positive_result'):
         with codecs.open(path, 'w', 'utf-8') as file:
             for line in result:
                 sentence, predict_id = line[0], line[1]
@@ -96,4 +96,4 @@ if __name__ == '__main__':
     predict_sentence, predict_id = nmt_predict.predict('圆周率')
     print(predict_sentence, predict_id)
 
-    nmt_predict.predict_batch(PROJECT_PATH / 'data/lm_data/test.data')
+    nmt_predict.predict_batch(PROJECT_PATH / 'data/test_data/positive.data')

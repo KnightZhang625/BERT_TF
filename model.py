@@ -87,7 +87,7 @@ class BertModel(object):
                     initializer_range=config.initializer_range,
                     word_embedding_name='word_embeddings')
 
-                
+                """
                 # 2. add positional embeddings
                 self.embedding_output = _mh.embedding_postprocessor(
                     input_tensor=self.embedding_output,
@@ -102,7 +102,7 @@ class BertModel(object):
                     initializer_range=config.initializer_range,
                     max_positional_embeddings=config.max_positional_embeddings,
                     dropout_prob=config.hidden_dropout_prob)
-                
+                """
 
             # Encoder
             with tf.variable_scope('encoder'):
