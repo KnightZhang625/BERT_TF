@@ -150,7 +150,11 @@ def main():
                                 repeat_num=bert_config.num_train_steps,
                                 max_length = bert_config.max_length)
 
+    gpu_config = tf.ConfigProto()
+    gpu_config.gpu_options.allow_growth=True
+
     run_config = tf.contrib.tpu.RunConfig(
+        session_config=gpu_config,
         keep_checkpoint_max=1,
         save_checkpoints_steps=10,
         model_dir=bert_config.model_dir)
