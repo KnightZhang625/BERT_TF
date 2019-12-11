@@ -33,6 +33,7 @@ setup = Setup()
 
 import optimization
 from model import BertModel
+from model_official import BertModel as BertModelOfficial
 import model_helper as _mh
 from model_helper import *
 from config import bert_config
@@ -50,21 +51,23 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
 
         # build model
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
-        model = BertModel(
+        model = BertModelOfficial(
             config=bert_config,
             is_training=is_training,
             input_ids=input_ids)
    
         # [b, s, h]
-        sequence_output = model.get_sequence_output()
-        sequence_output = tf.reshape(sequence_output, 
-                                [-1, bert_config.max_length * bert_config.hidden_size])
-        
+        sequence_output = model.get_pooled_output()
+        # sequence_output = tf.reshape(sequence_output, 
+        #                         [-1, bert_config.max_length * bert_config.hidden_size])
+        _info(sequence_output.shape)
         with tf.variable_scope('prediction'):
             logits  = tf.layers.dense(sequence_output, 
                                   bert_config.classes,
                                   name='prediction',
                                   kernel_initializer=_mh.create_initializer(0.2))
+      
+            # logits = _mh.batch_norm(logits, is_training=is_training)
             prob = tf.nn.softmax(logits, axis=-1)       # [b, 2]
             predict_ids = tf.argmax(prob, axis=-1)    # [b, ]
 
@@ -108,7 +111,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate, num_train_step
                         decay_steps: the whole step, the lr will touch the end_learning_rate after the decay_steps.
                         TRAIN_STEPS: the number for repeating the whole dataset, so the decay_steps = len(dataset) / batch_size * TRAIN_STEPS.
                     """
-                    train_op, lr = optimization.create_optimizer(loss, bert_config.learning_rate, bert_config.num_train_steps * 5, bert_config.lr_limit)
+                    train_op, lr = optimization.create_optimizer(loss, bert_config.learning_rate, bert_config.num_train_steps * 100, bert_config.lr_limit)
                     """
                     learning_rate = tf.train.polynomial_decay(config.learning_rate,
                                                             tf.train.get_or_create_global_step(),

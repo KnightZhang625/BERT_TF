@@ -5,6 +5,7 @@ import sys
 import codecs
 import functools
 import numpy as np
+import jieba.posseg as pseg
 from tensorflow.contrib import predictor
 
 from pathlib import Path
@@ -46,8 +47,11 @@ class NmtPredict(object):
                     original_sentence = sentence
                     # original_length = len(original_sentence.strip())
                     # input_mask = [1 for _ in range(original_length)] + [0 for _ in range(bert_config.max_length - original_length)]
+                    pos_result = list(map(list, list(pseg.cut(original_sentence))))
+                    pos_feature = [part[1] for part in pos_result]
+                    pos_feature.insert(0, '&')
 
-                    sentence = padding(sentence.strip(), bert_config.max_length)
+                    sentence = padding(pos_feature, bert_config.max_length)
                     input_ids = convert_to_idx(sentence)
 
                     features = {'input_ids': np.array([input_ids], dtype=np.int32)}

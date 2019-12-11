@@ -89,6 +89,9 @@ def create_initializer(initializer_range=0.02):
 def layer_norm(input_tensor, name=None):
     return tf.contrib.layers.layer_norm(inputs=input_tensor, scope=None)
 
+def batch_norm(input_tensor, is_training):
+  return tf.contrib.layers.batch_norm(input_tensor, scale=True, is_training=is_training)
+
 def dropout(input_tensor, dropout_prob):
     if dropout_prob is None or dropout_prob == 0.0:
         return input_tensor
@@ -100,7 +103,7 @@ def layer_norm_and_dropout(input_tensor, dropout_prob, name=None):
     output_tensor = layer_norm(input_tensor, name)
     output_tensor = dropout(input_tensor, dropout_prob)
     return output_tensor
-
+  
 def gelu(x):
     """Gaussian Error Linear Unit."""
     cdf = 0.5 * (1.0 + tf.tanh(
