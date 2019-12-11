@@ -17,7 +17,8 @@ python pre_train.py
 
 ## Log  
 - 11 Dec  
->>Be going to rewrite all the code.  
+>>1.Be going to rewrite all the code.  
+>>2.Add VAE in model_helper.py.  
 
 - 04 Nov  
 >>Revise the `load_data.py`, enhance the capability of generation.  
