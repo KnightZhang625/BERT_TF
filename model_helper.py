@@ -282,3 +282,33 @@ def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
         initialized_variable_names[name + ":0"] = 1
 
     return (assignment_map, initialized_variable_names)
+
+"""MODEL BLOCK"""
+def vae(input_tensor, scope_name='vae'):
+  """For VAE compute.
+  
+  Args:
+    input_tensor: tf.float32 tensor, expected 2 ranks.
+  """
+  axis_1, axis_2 = get_shape_list(vae, expected_rank=2)
+  
+  with tf.variable_scope(scope_name):
+    mu = tf.layers.dense(input_tensor, axis_1, name='{}_mu'.format(scope_name))
+    logVar = tf.layers.dense(input_tensor, axis_2, name='{}_log_var'.format(scope_name))
+    sigma = tf.exp(logVar / 2.0)
+    epsilon = tf.random_normal([axis_1, axis_2])
+    z = mu + sigma * epsilon
+  
+  return z
+
+def kl_loss(logVar, mu, kl_tolerance=0.5):
+  """Compute KL divergence."""
+  _, axis_2 = get_shape_list(logVar)
+
+  kl_loss = -0.5 * tf.reduce_sum(
+    (1 + logVar - tf.square(mu) - tf.exp(logVar)),
+    reduction_indices=1)
+  kl_loss = tf.maximum(kl_loss, kl_tolerance * axis_2)
+  kl_loss = tf.reduce_mean(kl_loss)
+  
+  return kl_loss
